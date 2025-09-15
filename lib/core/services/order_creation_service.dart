@@ -1,128 +1,71 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sqflite/sqflite.dart';
-import '../config/order_config.dart';
-import 'database_connection_service.dart';
-import 'order_settings_service.dart';
+import 'package:path/path.dart';
+// import removed: order_config is unused in Supabase flow
+import '../config/supabase_config.dart';
 
 /// Service for creating orders in the database
 class OrderCreationService {
-  OrderCreationService();
+  final SupabaseClient? supabase;
+
+  OrderCreationService({this.supabase});
 
   /// Create order in the database
   Future<void> createOrder(
     String clientGuid,
     List<Map<String, dynamic>> goodsList,
   ) async {
-    final conn = await DatabaseConnectionService.getConnection();
-    final host = conn.host;
-    final dbName = conn.dbName;
-    final user = conn.user;
-    final pass = conn.pass;
-    final storageId = await OrderSettingsService.getStorageId();
-
-    final basicAuth = 'Basic ${base64Encode(utf8.encode('$user:$pass'))}';
-
+    if (supabase == null) {
+      throw Exception('Supabase client is not initialized');
+    }
     try {
-      final oferta = await getOferta(clientGuid);
-
-      final body = jsonEncode({
-        "Date": DateTime.now().toIso8601String(),
-        "Posted": OrderConfig.defaultPosted,
-        "DeletionMark": OrderConfig.defaultDeletionMark,
-        "Контрагент_Key": clientGuid,
-        "Партнер_Key": clientGuid,
-        "Соглашение_Key": oferta,
-        "Склад_Key": storageId,
-        "ЖелаемаяДатаОтгрузки": DateTime.now().toIso8601String(),
-        "ДатаОтгрузки": DateTime.now().toIso8601String(),
-        "ЦенаВключаетНДС": OrderConfig.defaultPriceIncludesVAT,
-        "АвторасчетНДС": OrderConfig.defaultAutoCalculateVAT,
-        "Статус": OrderConfig.defaultStatus,
-        "ХозяйственнаяОперация": OrderConfig.defaultBusinessOperation,
-        "ДокументОснование_Type": OrderConfig.defaultDocumentBaseType,
-        "Согласован": OrderConfig.defaultAgreed,
-        "Организация_Key": OrderConfig.organizationKey,
-        "Товары": goodsList,
-      });
-
-      final client = http.Client();
-      final response = await client.post(
-        Uri.http(
-          host,
-          "/$dbName${OrderConfig.odataPath}Document_ЗаказКлиента?\$format=json",
-        ),
-        headers: {
-          'Authorization': basicAuth,
-          "Accept": "application/json",
-          "Accept-Charset": "UTF-8",
-          "Content-Type": "application/json",
-        },
-        body: body,
-      );
-
-      if (response.statusCode == 201) {
-        await _clearLocalOrders();
-      } else {
-        throw Exception('Failed to create order: ${response.body}');
-      }
+      // Use schema stored in SharedPreferences
+      final schema = SupabaseConfig.schema.isNotEmpty
+          ? SupabaseConfig.schema
+          : 'public';
+      final payload = {
+        'kontragent': clientGuid,
+        'tovaru': goodsList,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+      await supabase!.schema(schema).from('orders').insert(payload);
+      // Mark local orders as sent instead of clearing DB entirely
+      await _markLocalOrdersAsSent();
     } catch (e) {
-      throw Exception('Error creating order: $e');
-    } finally {
-      // client is closed where created й
+      throw Exception('Supabase insert failed: $e');
     }
   }
 
-  Future<String> getOferta(String clientGuid) async {
-    final conn = await DatabaseConnectionService.getConnection();
-    final host = conn.host;
-    final dbName = conn.dbName;
-    final user = conn.user;
-    final pass = conn.pass;
-    final basicAuth = 'Basic ${base64Encode(utf8.encode('$user:$pass'))}';
+  // Legacy OData helpers removed in Supabase build
 
+  /// Mark orders as sent inside JSON payloads
+  Future<void> _markLocalOrdersAsSent() async {
     try {
-      final client = http.Client();
-      final res = await client.get(
-        Uri.http(
-          host,
-          "/$dbName${OrderConfig.odataPath}Catalog_СоглашенияСКлиентами?\$format=json&\$top=10&\$filter=Контрагент_Key eq guid'$clientGuid'and Статус eq 'Действует'",
-        ),
-
-        // Uri.parse(
-        //     "${baseUrl}Catalog_СоглашенияСКлиентами?\$format=json&\$top=10&\$filter=Контрагент_Key eq guid'$clientGuid'and Статус eq 'Действует'"),
-        headers: {
-          'Authorization': basicAuth,
-          "Accept": "application/json",
-          "Accept-Charset": "UTF-8",
-          "Content-Type": "application/json",
-        },
-      );
-
-      if (res.statusCode == 200) {
-        Map json = jsonDecode(res.body);
-        return (json['value'] as List).isEmpty
-            ? '00000000-0000-0000-0000-000000000000'
-            : json['value'][0]['Ref_Key'];
-      } else {
-        throw Exception('Помилка HTTP-запиту зі статусом ${res.statusCode}');
+      // Open the same DB file path as OrdersLocalDataSourceImpl
+      final dbDir = await getDatabasesPath();
+      final dbPath = join(dbDir, 'customer_orders.db');
+      final db = await openDatabase(dbPath);
+      final rows = await db.query('orders');
+      for (final r in rows) {
+        final id = r['id'] as String;
+        final data = r['data'] as String;
+        try {
+          final map = jsonDecode(data) as Map<String, dynamic>;
+          map['is_sent'] = true;
+          await db.update(
+            'orders',
+            {'data': jsonEncode(map)},
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        } catch (_) {
+          // Skip malformed entries
+        }
       }
+      // Do not close here to avoid interfering with shared connections
     } catch (e) {
-      throw Exception(e);
-    } finally {
-      // client is closed where created
-    }
-  }
-
-  /// Clear local orders from SQLite database
-  Future<void> _clearLocalOrders() async {
-    try {
-      final database = await openDatabase('app_database.db');
-      await database.rawQuery('DELETE FROM ${OrderConfig.ordersTable}');
-      await database.close();
-    } catch (e) {
-      // Log error but don't throw - order was created successfully
-      print('Warning: Failed to clear local orders: $e');
+      print('Warning: Failed to mark local orders as sent: $e');
     }
   }
 

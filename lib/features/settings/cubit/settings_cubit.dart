@@ -13,6 +13,13 @@ part 'settings_state.dart';
 class SettingsCubit extends Cubit<SettingsState> {
   SettingsCubit() : super(SettingsState());
 
+  Future<void> getAgent() async {
+    final prefs = await SharedPreferences.getInstance();
+    final agent = prefs.getString('agent_guid') ?? '';
+    final agentName = prefs.getString('agent_name') ?? '';
+    emit(state.copyWith(agent: agent, agentName: agentName));
+  }
+
   Future<void> getApiData() async {
     try {
       final conn = await getdbConn();

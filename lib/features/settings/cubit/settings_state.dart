@@ -25,6 +25,8 @@ class SettingsState extends Equatable {
   final Storages storages;
   final Storage storage;
   final int darknees;
+  final String agent;
+  final String agentName;
   final String? errorMessage;
 
   SettingsState({
@@ -40,6 +42,8 @@ class SettingsState extends Equatable {
     this.dbName = '',
     this.pass = '',
     this.host = '',
+    this.agent = '',
+    this.agentName = '',
     this.errorMessage,
   }) : storages = storages ?? Storages.empty,
        storage = storage ?? Storage(name: '', storageId: ''),
@@ -58,6 +62,8 @@ class SettingsState extends Equatable {
     String? pass,
     String? host,
     String? dbName,
+    String? agent,
+    String? agentName,
     String? errorMessage,
   }) {
     return SettingsState(
@@ -73,6 +79,8 @@ class SettingsState extends Equatable {
       pass: pass ?? this.pass,
       darknees: darknees ?? this.darknees,
       dbName: dbName ?? this.dbName,
+      agent: agent ?? this.agent,
+      agentName: agentName ?? this.agentName,
       errorMessage: errorMessage,
     );
   }
@@ -91,6 +99,8 @@ class SettingsState extends Equatable {
     storages,
     storage,
     darknees,
+    agent,
+    agentName,
     errorMessage,
   ];
 }

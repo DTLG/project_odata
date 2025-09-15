@@ -154,6 +154,20 @@ class KontragentCubit extends Cubit<KontragentState> {
     return _childrenByParentGuid[parentGuid] ?? [];
   }
 
+  /// Lazily load children for a parent and cache them
+  Future<List<KontragentEntity>> loadChildren(String parentGuid) async {
+    if (_childrenByParentGuid.containsKey(parentGuid) &&
+        (_childrenByParentGuid[parentGuid]?.isNotEmpty ?? false)) {
+      return _childrenByParentGuid[parentGuid]!;
+    }
+
+    final result = await getChildrenUseCase(parentGuid);
+    return result.fold((failure) => <KontragentEntity>[], (children) {
+      _childrenByParentGuid[parentGuid] = children;
+      return children;
+    });
+  }
+
   /// Clear local data
   Future<void> clearLocalData() async {
     print('🗑️ KontragentCubit: Починаємо очищення локальних даних...');

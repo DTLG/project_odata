@@ -108,6 +108,10 @@ class SqliteKontragentDatasourceImpl
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_${SupabaseConfig.schema}_guid ON ${_tableName}(guid)',
     );
+    // Ensure guid is unique to prevent duplicates
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uniq_${SupabaseConfig.schema}_guid ON ${_tableName}(guid)',
+    );
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_${SupabaseConfig.schema}_name ON ${_tableName}(name)',
     );
@@ -120,6 +124,14 @@ class SqliteKontragentDatasourceImpl
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_${SupabaseConfig.schema}_isFolder ON ${_tableName}(is_folder)',
     );
+
+    // Cleanup existing duplicates by keeping the smallest objectBoxId per guid
+    await db.execute('''
+      DELETE FROM ${_tableName}
+      WHERE objectBoxId NOT IN (
+        SELECT MIN(objectBoxId) FROM ${_tableName} GROUP BY guid
+      )
+    ''');
   }
 
   Future<void> _migrateToSchemaPrefixedTables(Database db) async {
@@ -281,6 +293,7 @@ class SqliteKontragentDatasourceImpl
         where: 'is_folder = ? AND parent_guid = ?',
         whereArgs: [1, '00000000-0000-0000-0000-000000000000'],
         orderBy: 'name',
+        distinct: true,
       );
 
       // Отримуємо контрагентів верхнього рівня (is_folder = 0 AND parent_guid = '00000000-0000-0000-0000-000000000000')
@@ -380,7 +393,8 @@ class SqliteKontragentDatasourceImpl
         batch.insert(
           _tableName,
           map,
-          conflictAlgorithm: ConflictAlgorithm.ignore,
+          // With UNIQUE(guid), replace ensures we never keep stale duplicates
+          conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
 
@@ -497,7 +511,13 @@ class SqliteKontragentDatasourceImpl
       isFolder: (map['is_folder'] ?? 0) == 1,
       parentGuid: map['parent_guid'] ?? '',
       description: map['description'] ?? '',
-      createdAt: DateTime.parse(map['created_at'] as String),
+      createdAt: () {
+        final value = map['created_at'];
+        if (value is String) {
+          return DateTime.tryParse(value) ?? DateTime.now();
+        }
+        return DateTime.now();
+      }(),
     );
   }
 

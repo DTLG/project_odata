@@ -13,7 +13,13 @@ class ThemeService {
   // Отримання збереженого налаштування теми
   Future<bool> getThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_themeKey) ?? false; // За замовчуванням світла тема
+    final value = prefs.get(_themeKey);
+    if (value is bool) {
+      return value;
+    } else if (value is String) {
+      return value == 'dark';
+    }
+    return false; // За замовчуванням світла тема
   }
 
   // Скидання налаштувань теми

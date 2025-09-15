@@ -143,62 +143,130 @@ class _CustomerSelectionTabState extends State<CustomerSelectionTab> {
               }
 
               if (customers.isNotEmpty) {
-                return ListView.builder(
-                  itemCount: customers.length,
-                  itemBuilder: (context, index) {
-                    final customer = customers[index];
-                    final isSelected = _selectedCustomer?.guid == customer.guid;
+                final bool isSearchMode = _searchController.text
+                    .trim()
+                    .isNotEmpty;
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 4.0,
-                      ),
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : null,
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.secondary,
-                          child: Text(
-                            customer.name.isNotEmpty
-                                ? customer.name[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.onPrimary
-                                  : Theme.of(context).colorScheme.onSecondary,
-                            ),
+                if (isSearchMode) {
+                  // Flat list during search
+                  return ListView.builder(
+                    itemCount: customers.length,
+                    itemBuilder: (context, index) {
+                      final customer = customers[index];
+                      final isSelected =
+                          _selectedCustomer?.guid == customer.guid;
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 4.0,
+                        ),
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : null,
+                        child: ListTile(
+                          leading: Icon(
+                            customer.isFolder ? Icons.folder : Icons.person,
+                            color: customer.isFolder
+                                ? Colors.amber
+                                : Theme.of(context).colorScheme.secondary,
                           ),
+                          title: Text(customer.name),
+                          subtitle:
+                              (!customer.isFolder &&
+                                  (customer.edrpou.isNotEmpty ||
+                                      customer.description.isNotEmpty))
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (customer.edrpou.isNotEmpty)
+                                      Text('ЄДРПОУ: ${customer.edrpou}'),
+                                    if (customer.description.isNotEmpty)
+                                      Text(
+                                        customer.description,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
+                                )
+                              : null,
+                          trailing: isSelected && !customer.isFolder
+                              ? Icon(
+                                  Icons.check_circle,
+                                  color: Theme.of(context).colorScheme.primary,
+                                )
+                              : null,
+                          onTap: () {
+                            if (customer.isFolder)
+                              return; // do nothing in search for folders
+                            setState(() {
+                              _selectedCustomer = customer;
+                            });
+                          },
                         ),
-                        title: Text(customer.name),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (customer.edrpou.isNotEmpty)
-                              Text('ЄДРПОУ: ${customer.edrpou}'),
-                            if (customer.description.isNotEmpty)
-                              Text(
-                                customer.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
-                        trailing: isSelected
-                            ? Icon(
-                                Icons.check_circle,
-                                color: Theme.of(context).colorScheme.primary,
-                              )
-                            : const Icon(Icons.radio_button_unchecked),
-                        onTap: () {
+                      );
+                    },
+                  );
+                }
+
+                // Build hierarchy map for tree mode
+                final Map<String, List<KontragentEntity>> childrenByParent = {};
+                for (final c in customers) {
+                  final parent = c.parentGuid;
+                  childrenByParent.putIfAbsent(
+                    parent,
+                    () => <KontragentEntity>[],
+                  );
+                  childrenByParent[parent]!.add(c);
+                }
+                // Roots: parentGuid empty or all-zero GUID
+                final roots = [
+                  ...?childrenByParent['00000000-0000-0000-0000-000000000000'],
+                  ...?childrenByParent[''],
+                ];
+
+                return ListView.builder(
+                  itemCount: roots.length,
+                  itemBuilder: (context, index) {
+                    final node = roots[index];
+                    if (node.isFolder) {
+                      return _CustomerFolderNode(
+                        node: node,
+                        childrenByParent: childrenByParent,
+                        onPick: (kontragent) {
                           setState(() {
-                            _selectedCustomer = customer;
+                            _selectedCustomer = kontragent;
                           });
                         },
+                      );
+                    }
+                    final isSelected = _selectedCustomer?.guid == node.guid;
+                    return ListTile(
+                      leading: const Icon(Icons.person),
+                      title: Text(node.name),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (node.edrpou.isNotEmpty)
+                            Text('ЄДРПОУ: ${node.edrpou}'),
+                          if (node.description.isNotEmpty)
+                            Text(
+                              node.description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
+                      trailing: isSelected
+                          ? Icon(
+                              Icons.check_circle,
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedCustomer = node;
+                        });
+                      },
                     );
                   },
                 );
@@ -218,6 +286,64 @@ class _CustomerSelectionTabState extends State<CustomerSelectionTab> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CustomerFolderNode extends StatefulWidget {
+  const _CustomerFolderNode({
+    required this.node,
+    required this.childrenByParent,
+    required this.onPick,
+  });
+  final KontragentEntity node;
+  final Map<String, List<KontragentEntity>> childrenByParent;
+  final void Function(KontragentEntity) onPick;
+
+  @override
+  State<_CustomerFolderNode> createState() => _CustomerFolderNodeState();
+}
+
+class _CustomerFolderNodeState extends State<_CustomerFolderNode> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final children =
+        widget.childrenByParent[widget.node.guid] ?? const <KontragentEntity>[];
+    return ExpansionTile(
+      leading: const Icon(Icons.folder),
+      title: Text(widget.node.name),
+      onExpansionChanged: (v) => setState(() => _expanded = v),
+      children: _expanded
+          ? children.map((child) {
+              if (child.isFolder) {
+                return _CustomerFolderNode(
+                  node: child,
+                  childrenByParent: widget.childrenByParent,
+                  onPick: widget.onPick,
+                );
+              }
+              return ListTile(
+                leading: const Icon(Icons.person),
+                title: Text(child.name),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (child.edrpou.isNotEmpty)
+                      Text('ЄДРПОУ: ${child.edrpou}'),
+                    if (child.description.isNotEmpty)
+                      Text(
+                        child.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+                onTap: () => widget.onPick(child),
+              );
+            }).toList()
+          : const <Widget>[],
     );
   }
 }

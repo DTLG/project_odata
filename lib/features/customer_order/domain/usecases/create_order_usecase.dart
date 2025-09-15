@@ -3,7 +3,6 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/services/order_creation_service.dart';
 import '../entities/customer_order_entity.dart';
-import '../../../../common/shared_preferiences/sp_func.dart';
 
 /// Use case for creating a new customer order
 class CreateOrderUseCase
@@ -17,41 +16,17 @@ class CreateOrderUseCase
     CustomerOrderEntity order,
   ) async {
     try {
-      final List<Map<String, dynamic>> resultList = [];
-      final priceType = await getPriceType();
-      // Convert order items to goods list format
-      // final goodsList = order.items
-      //     .map(
-      //       (item) => {
-      //         'Номенклатура_Key': item.nomenclature.guid,
-      //         'Количество': item.quantity,
-      //         'Цена': item.unitPrice,
-      //         'Сумма': item.totalPrice,
-      //         'ЕдиницаИзмерения_Key': item.nomenclature.unitGuid,
-      //         'СтавкаНДС_Key': '', // Add VAT rate if needed
-      //         'СуммаНДС': 0.0, // Calculate VAT if needed
-      //         'СуммаВсего': item.totalPrice,
-      //       },
-      // )
-      // .toList();
-      int lineNumper = 1;
-      for (var nom in order.items) {
-        resultList.add({
-          "LineNumber": "$lineNumper",
-          "Номенклатура_Key": nom.nomenclature.guid,
-          "Склад_Key": await getStorage(),
-          // "Упаковка_Key": nom.packId,
-          "КоличествоУпаковок": nom.quantity,
-          "Количество": nom.quantity,
-          "Цена": nom.unitPrice,
-          "СтавкаНДС": "НДС20",
-          "ВидЦены_Key": priceType,
-          "ВариантОбеспечения": "Отгрузить",
-        });
-        lineNumper++;
-      }
+      // Supabase payload: tovaru = [{ nom_guid, count }]
+      final List<Map<String, dynamic>> goodsList = order.items
+          .map(
+            (item) => {
+              'nom_guid': item.nomenclature.guid,
+              'count': item.quantity,
+            },
+          )
+          .toList();
 
-      await orderCreationService.createOrder(order.customer.guid, resultList);
+      await orderCreationService.createOrder(order.customerGuid, goodsList);
 
       // Return the created order
       return Right(order);

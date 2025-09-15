@@ -96,7 +96,13 @@ class NomenclatureModel {
   factory NomenclatureModel.fromJson(Map<String, dynamic> json) {
     return NomenclatureModel(
       id: (json['id'] ?? '').toString(),
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: () {
+        final value = json['created_at'];
+        if (value is String) {
+          return DateTime.tryParse(value) ?? DateTime.now();
+        }
+        return DateTime.now();
+      }(),
       name: json['name']?.toString() ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       guid: json['guid']?.toString() ?? '',

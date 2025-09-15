@@ -1,7 +1,8 @@
 /// Configuration for order creation
 class OrderConfig {
   // Organization key - should be moved to settings
-  static const String organizationKey = '49b22f0e-2258-11e1-b864-002354e1ef1c';
+  //"Іванусик Б ФОП",
+  static const String organizationKey = '37d2c458-4161-11ec-a432-40167eadd5f2';
 
   // Default order settings
   static const bool defaultPosted = false;

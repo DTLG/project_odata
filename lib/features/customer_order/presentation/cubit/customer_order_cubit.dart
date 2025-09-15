@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/customer_order_entity.dart';
 import '../../domain/usecases/create_order_usecase.dart';
+import '../../domain/usecases/save_local_order_usecase.dart';
 import '../../domain/usecases/get_available_customers_usecase.dart';
 import '../../domain/usecases/get_available_nomenclature_usecase.dart';
 import '../../domain/usecases/search_customers_usecase.dart';
@@ -16,6 +17,7 @@ part 'customer_order_state.dart';
 /// Cubit for managing customer order state
 class CustomerOrderCubit extends Cubit<CustomerOrderState> {
   final CreateOrderUseCase createOrderUseCase;
+  final SaveLocalOrderUseCase? saveLocalOrderUseCase;
   final GetAvailableCustomersUseCase getAvailableCustomersUseCase;
   final GetAvailableNomenclatureUseCase getAvailableNomenclatureUseCase;
   final SearchCustomersUseCase searchCustomersUseCase;
@@ -26,9 +28,12 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
   List<KontragentEntity>? _cachedCustomers;
   List<NomenclatureEntity>? _cachedNomenclature;
   bool _isInitialized = false;
+  String? _currentOrderId;
+  String? _currentOrderNumber;
 
   CustomerOrderCubit({
     required this.createOrderUseCase,
+    this.saveLocalOrderUseCase,
     required this.getAvailableCustomersUseCase,
     required this.getAvailableNomenclatureUseCase,
     required this.searchCustomersUseCase,
@@ -71,6 +76,92 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
     } catch (e) {
       emit(CustomerOrderError('Помилка ініціалізації: ${e.toString()}'));
     }
+  }
+
+  /// Load an existing order into the cubit (e.g., opening a saved draft)
+  Future<void> loadExistingOrder(
+    CustomerOrderEntity order, {
+    KontragentEntity? customer,
+  }) async {
+    // Ensure base data is initialized so tabs have lists
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    final resolvedCustomer =
+        customer ??
+        _cachedCustomers?.firstWhere(
+          (c) => c.guid == order.customerGuid,
+          orElse: () => KontragentEntity(
+            guid: order.customerGuid,
+            name: '',
+            edrpou: '',
+            isFolder: false,
+            parentGuid: '',
+            description: '',
+            createdAt: DateTime.now(),
+          ),
+        );
+
+    final items = order.items;
+    final total = items.fold<double>(0.0, (sum, it) => sum + it.totalPrice);
+
+    // Preserve order identity for stable re-saves
+    _currentOrderId = order.id;
+    _currentOrderNumber = order.number;
+
+    if (state is CustomerOrderInitialized &&
+        _cachedNomenclature != null &&
+        _cachedCustomers != null) {
+      emit(
+        CustomerOrderWithNomenclatureLoaded(
+          selectedCustomer: resolvedCustomer,
+          orderItems: items,
+          totalAmount: total,
+          customers: _cachedCustomers!,
+          nomenclature: _cachedNomenclature!,
+        ),
+      );
+    } else {
+      emit(
+        CustomerOrderLoaded(
+          selectedCustomer: resolvedCustomer,
+          orderItems: items,
+          totalAmount: total,
+        ),
+      );
+    }
+  }
+
+  Future<void> saveLocalDraft() async {
+    CustomerOrderLoaded? orderState;
+    if (state is CustomerOrderLoaded) {
+      orderState = state as CustomerOrderLoaded;
+    } else if (state is CustomerOrderWithNomenclatureLoaded) {
+      final s = state as CustomerOrderWithNomenclatureLoaded;
+      orderState = CustomerOrderLoaded(
+        selectedCustomer: s.selectedCustomer,
+        orderItems: s.orderItems,
+        totalAmount: s.totalAmount,
+      );
+    }
+    if (orderState == null || orderState.orderItems.isEmpty) return;
+    if (orderState.selectedCustomer == null) return;
+    // Ensure stable IDs/numbers across saves
+    _currentOrderId ??= DateTime.now().millisecondsSinceEpoch.toString();
+    _currentOrderNumber ??=
+        'Замовлення-${DateTime.now().millisecondsSinceEpoch}';
+
+    final draft = CustomerOrderEntity(
+      id: _currentOrderId!,
+      number: _currentOrderNumber!,
+      createdAt: DateTime.now(),
+      customerGuid: orderState.selectedCustomer!.guid,
+      items: orderState.orderItems,
+      totalAmount: orderState.totalAmount,
+      status: OrderStatus.draft,
+    );
+    await saveLocalOrderUseCase?.call(draft);
   }
 
   /// Load available customers
@@ -693,13 +784,16 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
       return;
     }
 
+    // Auto-save locally before sending to server
+    await saveLocalDraft();
+
     emit(CustomerOrderLoading());
 
     final order = CustomerOrderEntity(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       number: 'ORD-${DateTime.now().millisecondsSinceEpoch}',
       createdAt: DateTime.now(),
-      customer: orderState.selectedCustomer!,
+      customerGuid: orderState.selectedCustomer!.guid,
       items: orderState.orderItems,
       totalAmount: orderState.totalAmount,
       status: OrderStatus.draft,

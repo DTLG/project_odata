@@ -8,7 +8,7 @@ class ThemeController {
   ThemeController._internal();
 
   final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
-    ThemeMode.system,
+    ThemeMode.light,
   );
 
   Future<void> load() async {
@@ -36,8 +36,10 @@ class ThemeController {
         themeModeNotifier.value = ThemeMode.dark;
         break;
       case 'system':
-      default:
         themeModeNotifier.value = ThemeMode.system;
+        break;
+      default:
+        themeModeNotifier.value = ThemeMode.light;
     }
   }
 

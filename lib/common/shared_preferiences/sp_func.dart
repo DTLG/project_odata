@@ -10,6 +10,16 @@ Future<DbConn> getdbConn() async {
   return DbConn(host: host, dbName: dbName, user: user, pass: pass);
 }
 
+Future<String> getSchema() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('supabase_schema') ?? '';
+}
+
+Future<void> setSchema(String schema) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('supabase_schema', schema);
+}
+
 Future<String> getStorage() async {
   final prefs = await SharedPreferences.getInstance();
 

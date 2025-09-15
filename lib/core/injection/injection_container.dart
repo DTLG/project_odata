@@ -13,8 +13,12 @@ import '../usecases/nomenclature/sync_nomenclature_usecase.dart';
 import '../../features/nomenclature/cubit/nomenclature_cubit.dart';
 import '../database/sqlite_helper.dart';
 import '../../features/inventory/di/inventory_injection.dart';
-import '../../features/kontragenty/di/kontragent_injection.dart';
+// import removed: KontragentInjection not used directly
 import '../../features/customer_order/di/customer_order_injection.dart';
+import '../../features/customer_order/data/datasources/local/orders_local_data_source.dart';
+import '../../features/customer_order/data/repositories/orders_repository_impl.dart';
+import '../../features/customer_order/domain/repositories/orders_repository.dart';
+import '../../features/customer_order/domain/usecases/save_local_order_usecase.dart';
 import '../../features/kontragenty/data/datasources/kontragent_remote_data_source.dart';
 import '../../features/kontragenty/data/datasources/kontragent_local_data_source.dart';
 import '../../features/kontragenty/data/datasources/remote/supabase_kontragent_datasource.dart';
@@ -89,6 +93,11 @@ void _initDataSources() {
   sl.registerLazySingleton<KontragentLocalDataSource>(
     () => SqliteKontragentDatasourceImpl(),
   );
+
+  // Orders local datasource
+  sl.registerLazySingleton<OrdersLocalDataSource>(
+    () => OrdersLocalDataSourceImpl(),
+  );
 }
 
 /// Ініціалізація репозиторіїв
@@ -105,6 +114,15 @@ void _initRepositories() {
   sl.registerLazySingleton<KontragentRepository>(
     () =>
         KontragentRepositoryImpl(remoteDataSource: sl(), localDataSource: sl()),
+  );
+
+  // Orders repository
+  sl.registerLazySingleton<OrdersRepository>(
+    () => OrdersRepositoryImpl(
+      sl<OrdersLocalDataSource>(),
+      sl<SqliteNomenclatureDatasource>(),
+      sl<KontragentLocalDataSource>(),
+    ),
   );
 }
 
@@ -127,6 +145,9 @@ void _initUseCases() {
   sl.registerLazySingleton(() => GetChildrenUseCase(sl()));
   sl.registerLazySingleton(() => GetKontragentyCountUseCase(sl()));
   sl.registerLazySingleton(() => ClearLocalDataUseCase(sl()));
+
+  // Orders use cases
+  sl.registerLazySingleton(() => SaveLocalOrderUseCase(sl()));
 }
 
 /// Ініціалізація cubits

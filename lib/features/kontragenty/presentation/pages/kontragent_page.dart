@@ -281,18 +281,76 @@ class _FolderNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final children = cubit.getChildren(entity.guid);
     if (entity.isFolder) {
-      return ExpansionTile(
-        leading: const Icon(Icons.folder),
+      return _LazyExpansionTile(
         title: Text(entity.name),
-        children: children.map((child) {
+        leading: const Icon(Icons.folder),
+        loadChildren: () => cubit.loadChildren(entity.guid),
+        itemBuilder: (context, child) {
           return child.isFolder
               ? _FolderNode(entity: child, cubit: cubit)
               : KontragentItemWidget(kontragent: child);
-        }).toList(),
+        },
       );
     }
     return KontragentItemWidget(kontragent: entity);
+  }
+}
+
+class _LazyExpansionTile extends StatefulWidget {
+  const _LazyExpansionTile({
+    required this.title,
+    required this.leading,
+    required this.loadChildren,
+    required this.itemBuilder,
+  });
+  final Widget title;
+  final Widget leading;
+  final Future<List<dynamic>> Function() loadChildren;
+  final Widget Function(BuildContext, dynamic) itemBuilder;
+
+  @override
+  State<_LazyExpansionTile> createState() => _LazyExpansionTileState();
+}
+
+class _LazyExpansionTileState extends State<_LazyExpansionTile> {
+  bool _expanded = false;
+  Future<List<dynamic>>? _future;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      leading: widget.leading,
+      title: widget.title,
+      onExpansionChanged: (v) {
+        setState(() => _expanded = v);
+        if (v && _future == null) {
+          _future = widget.loadChildren();
+        }
+      },
+      children: _expanded
+          ? [
+              FutureBuilder<List<dynamic>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+                  final list = snapshot.data!;
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: list.length,
+                    itemBuilder: (context, index) =>
+                        widget.itemBuilder(context, list[index]),
+                  );
+                },
+              ),
+            ]
+          : const <Widget>[],
+    );
   }
 }

@@ -3,6 +3,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/theme_service.dart';
 import '../../../../core/routes/app_router.dart';
 import '../widgets/feature_card.dart';
+import '../../../repair_request/presentation/pages/repair_requests_list_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -136,7 +137,7 @@ class _HomePageState extends State<HomePage> {
                           onTap: () {
                             AppRouter.navigateTo(
                               context,
-                              AppRouter.customerOrder,
+                              AppRouter.customerOrderLocalList,
                             );
                           },
                         ),
@@ -163,6 +164,19 @@ class _HomePageState extends State<HomePage> {
                             AppRouter.navigateTo(
                               context,
                               AppRouter.kontragentPage,
+                            );
+                          },
+                        ),
+                        FeatureCard(
+                          icon: Icons.build_circle,
+                          title: 'Заявка на ремонт',
+                          subtitle: 'Ремонт з вибором товару',
+                          color: Colors.teal,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const RepairRequestsListPage(),
+                              ),
                             );
                           },
                         ),

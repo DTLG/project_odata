@@ -5,8 +5,13 @@ import '../cubit/customer_order_cubit.dart';
 /// Tab for order confirmation
 class OrderConfirmationTab extends StatelessWidget {
   final VoidCallback onCreateOrder;
+  final VoidCallback onSaveLocal;
 
-  const OrderConfirmationTab({super.key, required this.onCreateOrder});
+  const OrderConfirmationTab({
+    super.key,
+    required this.onCreateOrder,
+    required this.onSaveLocal,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -210,40 +215,60 @@ class OrderConfirmationTab extends StatelessWidget {
 
               const SizedBox(height: 32),
 
-              // Create order button (same height as amount container)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _canCreateOrder(orderState) ? onCreateOrder : null,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                  ),
-                  child: state is CustomerOrderLoading
-                      ? const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+              // Actions row: send to server and save locally
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _canCreateOrder(orderState)
+                          ? onCreateOrder
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(56),
+                      ),
+                      child: state is CustomerOrderLoading
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                SizedBox(width: 12),
+                                Text(
+                                  'Створення...',
+                                  style: TextStyle(fontSize: 18),
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              'Надіслати',
+                              style: TextStyle(fontSize: 16),
                             ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Створення...',
-                              style: TextStyle(fontSize: 18),
-                            ),
-                          ],
-                        )
-                      : const Text(
-                          'Створити замовлення',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _canCreateOrder(orderState)
+                          ? onSaveLocal
+                          : null,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(56),
+                      ),
+                      child: const Text(
+                        'Зберегти',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 16),

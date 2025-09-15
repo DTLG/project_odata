@@ -6,7 +6,7 @@ class SupabaseConfig {
   static String supabaseUrl = 'https://ygrfbkojpzybjhxbpzfq.supabase.co';
   static String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlncmZia29qcHp5YmpoeGJwemZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyODA2MTYsImV4cCI6MjA3MTg1NjYxNn0.xEN2MDMf3DcPkPtQxU3Ydy_8rVLIpZ6N_MaM4mnNeqc';
-  static String schema = '';
+  static String schema = 'public';
 
   static const String _kUrl = 'supabase_url';
   static const String _kKey = 'supabase_anon_key';

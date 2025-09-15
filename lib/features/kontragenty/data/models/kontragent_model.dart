@@ -21,7 +21,13 @@ class KontragentModel extends KontragentEntity {
       isFolder: json['is_folder'] ?? false,
       parentGuid: json['parent_guid'] ?? '',
       description: json['description'] ?? '',
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: () {
+        final value = json['created_at'];
+        if (value is String) {
+          return DateTime.tryParse(value) ?? DateTime.now();
+        }
+        return DateTime.now();
+      }(),
     );
   }
 

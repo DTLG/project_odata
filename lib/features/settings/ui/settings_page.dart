@@ -1,11 +1,16 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/supabase_config.dart';
+import '../../../features/agents/data/datasources/local/sqlite_agents_datasource.dart';
+import '../../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
 import '../cubit/settings_cubit.dart';
 import '../models/price_type.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../features/agents/data/repositories/agents_repository_impl.dart';
+import '../../../features/agents/presentation/pages/agent_selection_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -42,6 +47,7 @@ class _SettingsViewState extends State<SettingsView> {
         child: BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, state) {
             if (state.status.isInitial) {
+              context.read<SettingsCubit>().getAgent();
               context.read<SettingsCubit>().getPrinterData();
               context.read<SettingsCubit>().getApiData();
               context.read<SettingsCubit>().getStorage();
@@ -85,6 +91,7 @@ class _SettingsViewState extends State<SettingsView> {
                 _PrinterSettingsWidget(),
                 _StorageCard(),
                 _ParamsCard(),
+                _AgentsCard(),
               ],
             );
           },
@@ -164,7 +171,7 @@ class _SupabaseSettingsCardState extends State<_SupabaseSettingsCard> {
               controller: schemaController,
               style: const TextStyle(fontSize: 12),
               decoration: const InputDecoration(
-                hintText: 'Schema (наприклад, bas_ut)',
+                hintText: 'Schema (наприклад, public)',
               ),
               onChanged: (v) => SupabaseConfig.saveToPrefs(newSchema: v),
             ),
@@ -189,6 +196,19 @@ class _DataBasePathWidgetState extends State<_DataBasePathWidget> {
 
   final passController = TextEditingController();
   final userController = TextEditingController();
+
+  void _maybeFetchPriceType(BuildContext context) {
+    final host = hostController.text.trim();
+    final db = dbController.text.trim();
+    final user = userController.text.trim();
+    final pass = passController.text.trim();
+    if (host.isNotEmpty &&
+        db.isNotEmpty &&
+        user.isNotEmpty &&
+        pass.isNotEmpty) {
+      context.read<SettingsCubit>().getPiceType();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +235,7 @@ class _DataBasePathWidgetState extends State<_DataBasePathWidget> {
                   onChanged: (value) {
                     cubit.writeSp('host', value);
                     cubit.gethost();
+                    _maybeFetchPriceType(context);
                   },
                   decoration: const InputDecoration(hintText: 'host'),
                 ),
@@ -229,6 +250,7 @@ class _DataBasePathWidgetState extends State<_DataBasePathWidget> {
                   onChanged: (value) {
                     cubit.writeSp('db_name', value);
                     cubit.getDbName();
+                    _maybeFetchPriceType(context);
                   },
                   decoration: const InputDecoration(
                     hintText: 'Назва бази даних',
@@ -245,6 +267,7 @@ class _DataBasePathWidgetState extends State<_DataBasePathWidget> {
                   onChanged: (value) {
                     cubit.writeSp('user', value);
                     cubit.getUser();
+                    _maybeFetchPriceType(context);
                   },
                   decoration: const InputDecoration(labelText: 'Користувач'),
                 ),
@@ -258,6 +281,7 @@ class _DataBasePathWidgetState extends State<_DataBasePathWidget> {
                   onChanged: (value) async {
                     cubit.writeSp('pass', value);
                     cubit.getPass();
+                    _maybeFetchPriceType(context);
                   },
                   decoration: const InputDecoration(labelText: 'Пароль'),
                 ),
@@ -596,6 +620,58 @@ class _ParamsCardState extends State<_ParamsCard> {
                 },
               );
             }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AgentsCard extends StatefulWidget {
+  const _AgentsCard();
+  @override
+  State<_AgentsCard> createState() => _AgentsCardState();
+}
+
+class _AgentsCardState extends State<_AgentsCard> {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, state) {
+        return SettingsCard(
+          child: ListTile(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AgentSelectionPage(
+                    repository: AgentsRepositoryImpl(
+                      local: SqliteAgentsDatasourceImpl(),
+                      remote: SupabaseAgentsDatasourceImpl(
+                        Supabase.instance.client,
+                      ),
+                    ),
+                  ),
+                ),
+              ).then((value) {
+                context.read<SettingsCubit>().getAgent();
+              });
+            },
+            title: const Text('Агент'),
+            trailing: BlocBuilder<SettingsCubit, SettingsState>(
+              builder: (context, state) {
+                if (state.status.isSuccess) {
+                  return SizedBox(
+                    width: 200,
+                    child: Text(state.agentName, textAlign: TextAlign.end),
+                  );
+                }
+                return SizedBox(
+                  width: 200,
+                  child: Text(state.agentName, textAlign: TextAlign.end),
+                );
+              },
+            ),
           ),
         );
       },

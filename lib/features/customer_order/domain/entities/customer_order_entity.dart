@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import '../../../kontragenty/domain/entities/kontragent_entity.dart';
 import '../../../../core/entities/nomenclature_entity.dart';
 
 /// Entity representing a customer order
@@ -8,22 +7,24 @@ class CustomerOrderEntity extends Equatable {
   final String number;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  final KontragentEntity customer;
+  final String customerGuid;
   final List<OrderItemEntity> items;
   final double totalAmount;
   final OrderStatus status;
   final String? notes;
+  final bool isSent;
 
   const CustomerOrderEntity({
     required this.id,
     required this.number,
     required this.createdAt,
     this.updatedAt,
-    required this.customer,
+    required this.customerGuid,
     required this.items,
     required this.totalAmount,
     required this.status,
     this.notes,
+    this.isSent = false,
   });
 
   @override
@@ -32,11 +33,12 @@ class CustomerOrderEntity extends Equatable {
     number,
     createdAt,
     updatedAt,
-    customer,
+    customerGuid,
     items,
     totalAmount,
     status,
     notes,
+    isSent,
   ];
 }
 

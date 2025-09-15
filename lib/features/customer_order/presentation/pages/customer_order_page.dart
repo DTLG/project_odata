@@ -7,22 +7,31 @@ import '../widgets/product_selection_tab.dart';
 import '../widgets/order_confirmation_tab.dart';
 import '../../../../core/injection/injection_container.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/customer_order_entity.dart';
+import '../../../kontragenty/domain/entities/kontragent_entity.dart';
 
 /// Main page for customer order with three tabs
 class CustomerOrderPage extends StatelessWidget {
-  const CustomerOrderPage({super.key});
+  final CustomerOrderEntity? initialOrder;
+  final KontragentEntity? initialCustomer;
+  const CustomerOrderPage({super.key, this.initialOrder, this.initialCustomer});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => sl<CustomerOrderCubit>(),
-      child: const _CustomerOrderView(),
+      child: _CustomerOrderView(
+        initialOrder: initialOrder,
+        initialCustomer: initialCustomer,
+      ),
     );
   }
 }
 
 class _CustomerOrderView extends StatefulWidget {
-  const _CustomerOrderView();
+  final CustomerOrderEntity? initialOrder;
+  final KontragentEntity? initialCustomer;
+  const _CustomerOrderView({this.initialOrder, this.initialCustomer});
 
   @override
   State<_CustomerOrderView> createState() => _CustomerOrderViewState();
@@ -38,7 +47,15 @@ class _CustomerOrderViewState extends State<_CustomerOrderView>
     _tabController = TabController(length: 4, vsync: this);
     // Initialize the cubit to load all data once
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CustomerOrderCubit>().initialize();
+      final cubit = context.read<CustomerOrderCubit>();
+      cubit.initialize().then((_) {
+        if (widget.initialOrder != null) {
+          cubit.loadExistingOrder(
+            widget.initialOrder!,
+            customer: widget.initialCustomer,
+          );
+        }
+      });
     });
   }
 
@@ -125,6 +142,17 @@ class _CustomerOrderViewState extends State<_CustomerOrderView>
               OrderConfirmationTab(
                 onCreateOrder: () {
                   context.read<CustomerOrderCubit>().createOrder();
+                },
+                onSaveLocal: () async {
+                  await context.read<CustomerOrderCubit>().saveLocalDraft();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Замовлення збережено локально'),
+                        backgroundColor: Colors.blue,
+                      ),
+                    );
+                  }
                 },
               ),
             ],

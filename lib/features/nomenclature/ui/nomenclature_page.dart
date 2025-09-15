@@ -7,6 +7,7 @@ import '../../../core/entities/nomenclature_entity.dart';
 import 'widgets/nomenclature_search_widget.dart';
 import 'widgets/nomenclature_item_widget.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
+import 'dart:async';
 
 /// Сторінка номенклатури
 class NomenclaturePage extends StatelessWidget {
@@ -320,9 +321,11 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _barcodeController = TextEditingController();
   bool _isSearchMode = false;
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     _barcodeController.dispose();
     super.dispose();
@@ -356,13 +359,17 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
                 ),
                 onChanged: (value) {
                   setState(() => _isSearchMode = value.trim().isNotEmpty);
-                  if (value.trim().isEmpty) {
-                    context.read<NomenclatureCubit>().loadRootTree();
-                  } else {
-                    context.read<NomenclatureCubit>().searchNomenclatureByName(
-                      value,
-                    );
-                  }
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 250), () {
+                    if (!mounted) return;
+                    if (value.trim().isEmpty) {
+                      context.read<NomenclatureCubit>().loadRootTree();
+                    } else {
+                      context
+                          .read<NomenclatureCubit>()
+                          .searchNomenclatureByName(value);
+                    }
+                  });
                 },
               ),
               const SizedBox(height: 8),
@@ -553,16 +560,81 @@ class _FolderNode extends StatelessWidget {
   Widget build(BuildContext context) {
     final children = cubit.getChildren(entity.guid);
     if (entity.isFolder) {
-      return ExpansionTile(
-        leading: const Icon(Icons.folder),
+      return _LazyExpansionTile(
         title: Text(entity.name),
-        children: children.map((child) {
-          return child.isFolder
-              ? _FolderNode(entity: child, cubit: cubit)
-              : NomenclatureItemWidget(nomenclature: child);
-        }).toList(),
+        leading: const Icon(Icons.folder),
+        itemCount: children.length,
+        itemBuilder: (context, index) {
+          final child = children[index];
+          if (child.isFolder) {
+            return _FolderNode(entity: child, cubit: cubit);
+          }
+          return NomenclatureItemWidget(nomenclature: child);
+        },
       );
     }
     return NomenclatureItemWidget(nomenclature: entity);
+  }
+}
+
+class _LazyExpansionTile extends StatefulWidget {
+  const _LazyExpansionTile({
+    required this.title,
+    required this.leading,
+    required this.itemCount,
+    required this.itemBuilder,
+  });
+  final Widget title;
+  final Widget leading;
+  final int itemCount;
+  final Widget Function(BuildContext, int) itemBuilder;
+
+  @override
+  State<_LazyExpansionTile> createState() => _LazyExpansionTileState();
+}
+
+class _LazyExpansionTileState extends State<_LazyExpansionTile> {
+  bool _expanded = false;
+  final ScrollController _innerController = ScrollController();
+
+  @override
+  void dispose() {
+    _innerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      leading: widget.leading,
+      title: widget.title,
+      onExpansionChanged: (v) => setState(() => _expanded = v),
+      children: _expanded
+          ? <Widget>[
+              Builder(
+                builder: (context) {
+                  final double screenHeight = MediaQuery.of(
+                    context,
+                  ).size.height;
+                  const double perItemHeight = 56.0; // approx tile height
+                  const double minHeight =
+                      perItemHeight * 3; // show at least ~3
+                  final double estimated = widget.itemCount * perItemHeight;
+                  final double maxHeight =
+                      screenHeight * 0.6; // cap at 60% screen
+                  final double height = estimated.clamp(minHeight, maxHeight);
+
+                  return ListView.builder(
+                    controller: _innerController,
+                    shrinkWrap: true,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: widget.itemCount,
+                    itemBuilder: widget.itemBuilder,
+                  );
+                },
+              ),
+            ]
+          : const <Widget>[],
+    );
   }
 }
