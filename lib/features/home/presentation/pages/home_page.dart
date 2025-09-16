@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/theme_service.dart';
 import '../../../../core/routes/app_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../settings/cubit/settings_cubit.dart';
 import '../widgets/feature_card.dart';
 import '../../../repair_request/presentation/pages/repair_requests_list_page.dart';
+import '../../../settings/ui/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,161 +42,183 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: _isDarkMode ? AppTheme.darkTheme : AppTheme.lightTheme,
-      home: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            // App Bar
-            SliverAppBar(
-              expandedHeight: 120,
-              floating: false,
-              pinned: true,
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(
-                  'Project OData',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontWeight: FontWeight.bold,
+    return BlocProvider(
+      create: (_) => SettingsCubit()..loadHomeIcons(),
+      child: MaterialApp(
+        theme: _isDarkMode ? AppTheme.darkTheme : AppTheme.lightTheme,
+        onGenerateRoute: AppRouter.generateRoute,
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              // App Bar
+              SliverAppBar(
+                expandedHeight: 120,
+                floating: false,
+                pinned: true,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Text(
+                    'Project OData',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.primaryColor,
-                        AppTheme.primaryDarkColor,
-                      ],
+                  background: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppTheme.primaryColor,
+                          AppTheme.primaryDarkColor,
+                        ],
+                      ),
                     ),
                   ),
                 ),
+                actions: [
+                  BlocBuilder<SettingsCubit, SettingsState>(
+                    builder: (context, state) {
+                      return IconButton(
+                        icon: const Icon(Icons.settings),
+                        onPressed: () async {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SettingsPage(),
+                            ),
+                          ).then((value) {
+                            context.read<SettingsCubit>().loadHomeIcons();
+                          });
+                          // await AppRouter.navigateTo(
+                          //   context,
+                          //   AppRouter.settingsPage,
+                          // );
+                          // context.read<SettingsCubit>().loadHomeIcons();
+                          // if (!mounted) return;
+                        },
+                        tooltip: 'Налаштування',
+                      );
+                    },
+                  ),
+                  // IconButton(
+                  //   icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
+                  //   onPressed: _toggleTheme,
+                  //   tooltip: 'Змінити тему',
+                  // ),
+                ],
               ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.settings),
-                  onPressed: () {
-                    AppRouter.navigateTo(context, AppRouter.settingsPage);
-                  },
-                  tooltip: 'Налаштування',
-                ),
-                // IconButton(
-                //   icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
-                //   onPressed: _toggleTheme,
-                //   tooltip: 'Змінити тему',
-                // ),
-              ],
-            ),
 
-            // Content
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.85,
-                      children: [
-                        FeatureCard(
-                          icon: Icons.local_offer,
-                          title: 'Друк етикеток',
-                          subtitle: 'Створення та друк етикеток',
-                          color: AppTheme.primaryColor,
-                          onTap: () {
-                            AppRouter.navigateTo(context, AppRouter.lablePrint);
-                            // TODO: Навігація до друку етикеток
-                            // ScaffoldMessenger.of(context).showSnackBar(
-                            //   const SnackBar(
-                            //     content: Text('Друк етикеток - в розробці'),
-                            //   ),
-                            // );
-                          },
-                        ),
-                        FeatureCard(
-                          icon: Icons.inventory,
-                          title: 'Перевірка номенклатури',
-                          subtitle: 'Контроль цін',
-                          color: AppTheme.secondaryColor,
-                          onTap: () {
-                            AppRouter.navigateTo(
-                              context,
-                              AppRouter.nomenclature,
-                            );
-                          },
-                        ),
-                        FeatureCard(
-                          icon: Icons.shopping_cart,
-                          title: 'Замовлення клієнта',
-                          subtitle: 'Управління замовленнями',
-                          color: AppTheme.accentColor,
-                          onTap: () {
-                            AppRouter.navigateTo(
-                              context,
-                              AppRouter.customerOrderLocalList,
-                            );
-                          },
-                        ),
-                        FeatureCard(
-                          icon: Icons.assessment,
-                          title: 'Інвентаризація',
-                          subtitle: 'Проведення перевірок',
-                          color: Colors.orange,
-                          onTap: () {
-                            // TODO: Навігація до інвентаризації
-                            AppRouter.navigateTo(
-                              context,
-                              AppRouter.inventoryCheck,
-                            );
-                          },
-                        ),
-                        FeatureCard(
-                          icon: Icons.people,
-                          title: 'Контрагенти',
-                          subtitle: 'Управління контрагентами',
-                          color: Colors.cyan,
-                          onTap: () {
-                            // TODO: Навігація до контрагентів
-                            AppRouter.navigateTo(
-                              context,
-                              AppRouter.kontragentPage,
-                            );
-                          },
-                        ),
-                        FeatureCard(
-                          icon: Icons.build_circle,
-                          title: 'Заявка на ремонт',
-                          subtitle: 'Ремонт з вибором товару',
-                          color: Colors.teal,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const RepairRequestsListPage(),
+              // Content
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      BlocBuilder<SettingsCubit, SettingsState>(
+                        builder: (context, s) {
+                          final cards = <Widget>[
+                            if (s.showLabelPrint)
+                              FeatureCard(
+                                icon: Icons.local_offer,
+                                title: 'Друк етикеток',
+                                subtitle: 'Створення та друк етикеток',
+                                color: AppTheme.primaryColor,
+                                onTap: () {
+                                  AppRouter.navigateTo(
+                                    context,
+                                    AppRouter.lablePrint,
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-
-                    // // Theme Switcher
-                    // ThemeSwitcher(
-                    //   isDarkMode: _isDarkMode,
-                    //   onThemeChanged: _toggleTheme,
-                    // ),
-                    const SizedBox(height: 20),
-                  ],
+                            if (s.showNomenclature)
+                              FeatureCard(
+                                icon: Icons.inventory,
+                                title: 'Перевірка номенклатури',
+                                subtitle: 'Контроль цін',
+                                color: AppTheme.secondaryColor,
+                                onTap: () {
+                                  AppRouter.navigateTo(
+                                    context,
+                                    AppRouter.nomenclature,
+                                  );
+                                },
+                              ),
+                            if (s.showCustomerOrders)
+                              FeatureCard(
+                                icon: Icons.shopping_cart,
+                                title: 'Замовлення клієнта',
+                                subtitle: 'Управління замовленнями',
+                                color: AppTheme.accentColor,
+                                onTap: () {
+                                  AppRouter.navigateTo(
+                                    context,
+                                    AppRouter.customerOrderLocalList,
+                                  );
+                                },
+                              ),
+                            if (s.showInventoryCheck)
+                              FeatureCard(
+                                icon: Icons.assessment,
+                                title: 'Інвентаризація',
+                                subtitle: 'Проведення перевірок',
+                                color: Colors.orange,
+                                onTap: () {
+                                  AppRouter.navigateTo(
+                                    context,
+                                    AppRouter.inventoryCheck,
+                                  );
+                                },
+                              ),
+                            if (s.showKontragenty)
+                              FeatureCard(
+                                icon: Icons.people,
+                                title: 'Контрагенти',
+                                subtitle: 'Управління контрагентами',
+                                color: Colors.cyan,
+                                onTap: () {
+                                  AppRouter.navigateTo(
+                                    context,
+                                    AppRouter.kontragentPage,
+                                  );
+                                },
+                              ),
+                            if (s.showRepairRequests)
+                              FeatureCard(
+                                icon: Icons.build_circle,
+                                title: 'Заявка на ремонт',
+                                subtitle: 'Ремонт з вибором товару',
+                                color: Colors.teal,
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const RepairRequestsListPage(),
+                                    ),
+                                  );
+                                },
+                              ),
+                          ];
+                          return GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 0.85,
+                            children: cards,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -239,15 +239,10 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
       SearchNomenclatureByArticleParams(article),
     );
 
-    result.fold((failure) => emit(NomenclatureError(failure.message)), (
-      nomenclature,
-    ) {
-      if (nomenclature != null) {
+    result.fold((failure) => emit(NomenclatureError(failure.message)), (list) {
+      if (list.isNotEmpty) {
         emit(
-          NomenclatureFoundByArticle(
-            nomenclature: nomenclature,
-            article: article,
-          ),
+          NomenclatureSearchResult(searchResults: list, searchQuery: article),
         );
       } else {
         emit(NomenclatureNotFoundByArticle(article));

@@ -15,8 +15,8 @@ abstract class NomenclatureRepository {
     String name,
   );
 
-  /// Пошук номенклатури за артикулом в локальній базі
-  Future<Either<Failure, NomenclatureEntity?>> searchNomenclatureByArticle(
+  /// Пошук номенклатури за артикулом в локальній базі (повертає кілька записів)
+  Future<Either<Failure, List<NomenclatureEntity>>> searchNomenclatureByArticle(
     String article,
   );
 

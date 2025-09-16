@@ -52,29 +52,36 @@ class _SettingsViewState extends State<SettingsView> {
               context.read<SettingsCubit>().getApiData();
               context.read<SettingsCubit>().getStorage();
               context.read<SettingsCubit>().getPiceType();
+              context.read<SettingsCubit>().loadHomeIcons();
             }
 
             if (state.status.isFailure && state.errorMessage != null) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Помилка'),
-                    content: SingleChildScrollView(
-                      child: Text(state.errorMessage!),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(ctx).pop();
-                          context.read<SettingsCubit>().clearError();
-                        },
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
               });
+
+              // WidgetsBinding.instance.addPostFrameCallback((_) {
+              //   showDialog(
+              //     context: context,
+              //     builder: (ctx) => AlertDialog(
+              //       title: const Text('Помилка'),
+              //       content: SingleChildScrollView(
+              //         child: Text(state.errorMessage!),
+              //       ),
+              //       actions: [
+              //         TextButton(
+              //           onPressed: () {
+              //             Navigator.of(ctx).pop();
+              //             context.read<SettingsCubit>().clearError();
+              //           },
+              //           child: const Text('OK'),
+              //         ),
+              //       ],
+              //     ),
+              //   );
+              // });
             }
 
             if (state.status.isLoading) {
@@ -87,6 +94,7 @@ class _SettingsViewState extends State<SettingsView> {
                 SizedBox(height: 8),
                 _ThemeModeCard(),
                 SizedBox(height: 8),
+                _HomePageIconsCard(),
                 _DataBasePathWidget(),
                 _PrinterSettingsWidget(),
                 _StorageCard(),
@@ -449,6 +457,93 @@ class SettingsCard extends StatelessWidget {
   }
 }
 
+class _HomePageIconsCard extends StatelessWidget {
+  const _HomePageIconsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, state) {
+        return SettingsCard(
+          child: ExpansionTile(
+            title: const Text('Налаштування головної сторінки'),
+            children: [
+              _IconToggle(
+                title: 'Друк етикеток',
+                value: state.showLabelPrint,
+                onChanged: (v) => context.read<SettingsCubit>().setHomeIcon(
+                  'home_show_label_print',
+                  v,
+                ),
+              ),
+              _IconToggle(
+                title: 'Перевірка номенклатури',
+                value: state.showNomenclature,
+                onChanged: (v) => context.read<SettingsCubit>().setHomeIcon(
+                  'home_show_nomenclature',
+                  v,
+                ),
+              ),
+              _IconToggle(
+                title: 'Замовлення клієнта',
+                value: state.showCustomerOrders,
+                onChanged: (v) => context.read<SettingsCubit>().setHomeIcon(
+                  'home_show_customer_orders',
+                  v,
+                ),
+              ),
+              _IconToggle(
+                title: 'Інвентаризація',
+                value: state.showInventoryCheck,
+                onChanged: (v) => context.read<SettingsCubit>().setHomeIcon(
+                  'home_show_inventory_check',
+                  v,
+                ),
+              ),
+              _IconToggle(
+                title: 'Контрагенти',
+                value: state.showKontragenty,
+                onChanged: (v) => context.read<SettingsCubit>().setHomeIcon(
+                  'home_show_kontragenty',
+                  v,
+                ),
+              ),
+              _IconToggle(
+                title: 'Заявка на ремонт',
+                value: state.showRepairRequests,
+                onChanged: (v) => context.read<SettingsCubit>().setHomeIcon(
+                  'home_show_repair_requests',
+                  v,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _IconToggle extends StatelessWidget {
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _IconToggle({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      title: Text(title),
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+}
+
 class _StorageCard extends StatelessWidget {
   const _StorageCard();
 
@@ -603,7 +698,7 @@ class _ParamsCardState extends State<_ParamsCard> {
                 ).style, // або задай свій стиль
                 children: [
                   TextSpan(
-                    text: state.priceType?.description ?? 'Не вибрано',
+                    text: state.priceType.description,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ],

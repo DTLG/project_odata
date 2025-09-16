@@ -4,6 +4,8 @@ import '../cubit/customer_order_cubit.dart';
 import '../../domain/entities/customer_order_entity.dart';
 import '../../../../core/entities/nomenclature_entity.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
+import 'dart:async';
+import '../../../common/widgets/search_mode_switch.dart' as common;
 
 /// Tab for selecting products and adding to cart
 class ProductSelectionTab extends StatefulWidget {
@@ -19,6 +21,10 @@ class _ProductSelectionTabState extends State<ProductSelectionTab> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _barcodeController = TextEditingController();
   bool _isSearchMode = false;
+  bool _byName = true;
+  bool _byBarcode = false;
+  bool _byArticle = false;
+  Timer? _debounce;
 
   @override
   void dispose() {
@@ -36,70 +42,99 @@ class _ProductSelectionTabState extends State<ProductSelectionTab> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Search field
               TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  labelText: 'Пошук товару',
-                  hintText: 'Введіть назву товару',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
+                  labelText: 'Пошук',
+                  hintText: _byName
+                      ? 'Введіть назву'
+                      : _byBarcode
+                      ? 'Введіть/скануйте штрихкод'
+                      : 'Введіть артикул',
+                  prefixIcon: _byBarcode
+                      ? const Icon(Icons.qr_code_scanner)
+                      : const Icon(Icons.search),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_byBarcode)
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt),
+                          onPressed: _scanBarcode,
+                        ),
+                      if (_searchController.text.isNotEmpty)
+                        IconButton(
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
-                            setState(() {
-                              _isSearchMode = false;
-                            });
+                            setState(() => _isSearchMode = false);
                             context
                                 .read<CustomerOrderCubit>()
                                 .loadAvailableNomenclature();
                           },
-                        )
-                      : null,
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _isSearchMode = value.trim().isNotEmpty;
-                  });
-                  context.read<CustomerOrderCubit>().searchNomenclature(value);
-                },
-              ),
-              const SizedBox(height: 8),
-              // Barcode field
-              TextField(
-                controller: _barcodeController,
-                decoration: InputDecoration(
-                  labelText: 'Штрихкод',
-                  hintText: 'Введіть або відскануйте штрихкод',
-                  prefixIcon: const Icon(Icons.qr_code_scanner),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.camera_alt),
-                    onPressed: _scanBarcode,
+                        ),
+                    ],
                   ),
                   border: const OutlineInputBorder(),
                 ),
                 onChanged: (value) {
-                  if (value.trim().isEmpty && _searchController.text.isEmpty) {
-                    setState(() {
-                      _isSearchMode = false;
-                    });
-                    context
-                        .read<CustomerOrderCubit>()
-                        .loadAvailableNomenclature();
-                  }
+                  setState(() => _isSearchMode = value.trim().isNotEmpty);
+                  _debounce?.cancel();
+                  _debounce = Timer(
+                    const Duration(milliseconds: 250),
+                    () async {
+                      if (!mounted) return;
+                      final q = value.trim();
+                      if (q.isEmpty) {
+                        setState(() => _isSearchMode = false);
+                        context
+                            .read<CustomerOrderCubit>()
+                            .loadAvailableNomenclature();
+                        return;
+                      }
+                      if (_byBarcode) {
+                        context
+                            .read<CustomerOrderCubit>()
+                            .searchNomenclatureByBarcode(q);
+                      } else if (_byArticle) {
+                        // Use existing name search for article as well
+                        context.read<CustomerOrderCubit>().searchNomenclature(
+                          q,
+                        );
+                      } else {
+                        context.read<CustomerOrderCubit>().searchNomenclature(
+                          q,
+                        );
+                      }
+                    },
+                  );
                 },
                 onSubmitted: (value) {
-                  if (value.isNotEmpty) {
-                    setState(() {
-                      _isSearchMode = true;
-                    });
+                  final q = value.trim();
+                  if (q.isEmpty) return;
+                  setState(() => _isSearchMode = true);
+                  if (_byBarcode) {
                     context
                         .read<CustomerOrderCubit>()
-                        .searchNomenclatureByBarcode(value);
-                    _barcodeController.clear();
+                        .searchNomenclatureByBarcode(q);
+                  } else if (_byArticle) {
+                    context.read<CustomerOrderCubit>().searchNomenclature(q);
+                  } else {
+                    context.read<CustomerOrderCubit>().searchNomenclature(q);
                   }
+                },
+              ),
+              const SizedBox(height: 8),
+              _SearchSwitch(
+                byName: _byName,
+                byBarcode: _byBarcode,
+                byArticle: _byArticle,
+                onChanged: (mode) {
+                  setState(() {
+                    _byName = mode == _SearchMode.name;
+                    _byBarcode = mode == _SearchMode.barcode;
+                    _byArticle = mode == _SearchMode.article;
+                  });
                 },
               ),
             ],
@@ -406,3 +441,43 @@ extension on _ProductSelectionTabState {
     }
   }
 }
+
+class _SearchSwitch extends StatelessWidget {
+  const _SearchSwitch({
+    required this.byName,
+    required this.byBarcode,
+    required this.byArticle,
+    required this.onChanged,
+  });
+  final bool byName;
+  final bool byBarcode;
+  final bool byArticle;
+  final ValueChanged<_SearchMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final common.SearchParam current = byBarcode
+        ? common.SearchParam.barcode
+        : byArticle
+        ? common.SearchParam.article
+        : common.SearchParam.name;
+    return common.SearchModeSwitch(
+      value: current,
+      onChanged: (p) {
+        switch (p) {
+          case common.SearchParam.name:
+            onChanged(_SearchMode.name);
+            break;
+          case common.SearchParam.barcode:
+            onChanged(_SearchMode.barcode);
+            break;
+          case common.SearchParam.article:
+            onChanged(_SearchMode.article);
+            break;
+        }
+      },
+    );
+  }
+}
+
+enum _SearchMode { name, barcode, article }

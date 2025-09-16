@@ -29,6 +29,14 @@ class SettingsState extends Equatable {
   final String agentName;
   final String? errorMessage;
 
+  // Home page icons visibility
+  final bool showLabelPrint;
+  final bool showNomenclature;
+  final bool showCustomerOrders;
+  final bool showInventoryCheck;
+  final bool showKontragenty;
+  final bool showRepairRequests;
+
   SettingsState({
     this.status = SettingsStatus.initial,
     this.printerHost = '',
@@ -45,6 +53,12 @@ class SettingsState extends Equatable {
     this.agent = '',
     this.agentName = '',
     this.errorMessage,
+    this.showLabelPrint = true,
+    this.showNomenclature = true,
+    this.showCustomerOrders = true,
+    this.showInventoryCheck = true,
+    this.showKontragenty = true,
+    this.showRepairRequests = true,
   }) : storages = storages ?? Storages.empty,
        storage = storage ?? Storage(name: '', storageId: ''),
        priceType = priceType ?? PriceType.empty;
@@ -65,6 +79,12 @@ class SettingsState extends Equatable {
     String? agent,
     String? agentName,
     String? errorMessage,
+    bool? showLabelPrint,
+    bool? showNomenclature,
+    bool? showCustomerOrders,
+    bool? showInventoryCheck,
+    bool? showKontragenty,
+    bool? showRepairRequests,
   }) {
     return SettingsState(
       status: status ?? this.status,
@@ -82,6 +102,12 @@ class SettingsState extends Equatable {
       agent: agent ?? this.agent,
       agentName: agentName ?? this.agentName,
       errorMessage: errorMessage,
+      showLabelPrint: showLabelPrint ?? this.showLabelPrint,
+      showNomenclature: showNomenclature ?? this.showNomenclature,
+      showCustomerOrders: showCustomerOrders ?? this.showCustomerOrders,
+      showInventoryCheck: showInventoryCheck ?? this.showInventoryCheck,
+      showKontragenty: showKontragenty ?? this.showKontragenty,
+      showRepairRequests: showRepairRequests ?? this.showRepairRequests,
     );
   }
 
@@ -102,5 +128,11 @@ class SettingsState extends Equatable {
     agent,
     agentName,
     errorMessage,
+    showLabelPrint,
+    showNomenclature,
+    showCustomerOrders,
+    showInventoryCheck,
+    showKontragenty,
+    showRepairRequests,
   ];
 }

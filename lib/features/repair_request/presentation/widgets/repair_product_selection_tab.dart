@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import '../../../../data/datasources/local/sqflite_nomenclature_datasource.dart';
 import '../../../../core/injection/injection_container.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../common/widgets/search_mode_switch.dart' as common;
 
 class RepairProductSelectionTab extends StatefulWidget {
   final String? initialGuid;
@@ -30,6 +33,11 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
   bool _isSearchMode = false;
   String? _selectedGuid;
   bool _loadedOnce = false;
+  // search mode flags
+  bool _byName = true;
+  bool _byBarcode = false;
+  bool _byArticle = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -101,6 +109,31 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
     });
   }
 
+  Future<void> _searchByArticle(String article) async {
+    final q = article.trim();
+    if (q.isEmpty) {
+      setState(() {
+        _isSearchMode = false;
+        _shown = _all;
+      });
+      return;
+    }
+    final String qLower = q.toLowerCase();
+    // Filter locally to return multiple matches (up to 100)
+    final List<dynamic> filtered = _all
+        .where(
+          (e) =>
+              e.article != null &&
+              e.article.toString().toLowerCase().contains(qLower),
+        )
+        .take(100)
+        .toList();
+    setState(() {
+      _isSearchMode = true;
+      _shown = filtered;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -113,45 +146,85 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
               TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  labelText: 'Пошук товару',
-                  hintText: 'Введіть назву товару',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
+                  labelText: 'Пошук',
+                  hintText: _byName
+                      ? 'Введіть назву'
+                      : _byBarcode
+                      ? 'Введіть/скануйте штрихкод'
+                      : 'Введіть артикул',
+                  prefixIcon: _byBarcode
+                      ? const Icon(Icons.qr_code_scanner)
+                      : const Icon(Icons.search),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_byBarcode)
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt),
+                          onPressed: _scanBarcode,
+                        ),
+                      if (_searchController.text.isNotEmpty)
+                        IconButton(
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
-                            _searchByName('');
+                            setState(() => _isSearchMode = false);
+                            _shown = _all;
                           },
-                        )
-                      : null,
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: _searchByName,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _barcodeController,
-                decoration: InputDecoration(
-                  labelText: 'Штрихкод',
-                  hintText: 'Введіть або відскануйте штрихкод',
-                  prefixIcon: const Icon(Icons.qr_code_scanner),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.camera_alt),
-                    onPressed: _scanBarcode,
+                        ),
+                    ],
                   ),
                   border: const OutlineInputBorder(),
                 ),
+                onChanged: (value) {
+                  setState(() => _isSearchMode = value.trim().isNotEmpty);
+                  _debounce?.cancel();
+                  _debounce = Timer(
+                    const Duration(milliseconds: 250),
+                    () async {
+                      if (!mounted) return;
+                      final q = value.trim();
+                      if (q.isEmpty) {
+                        setState(() {
+                          _isSearchMode = false;
+                          _shown = _all;
+                        });
+                        return;
+                      }
+                      if (_byBarcode) {
+                        await _searchByBarcode(q);
+                      } else if (_byArticle) {
+                        await _searchByArticle(q);
+                      } else {
+                        await _searchByName(q);
+                      }
+                    },
+                  );
+                },
                 onSubmitted: (value) {
-                  if (value.isNotEmpty) {
-                    _searchByBarcode(value);
-                    _barcodeController.clear();
+                  final q = value.trim();
+                  if (q.isEmpty) return;
+                  setState(() => _isSearchMode = true);
+                  if (_byBarcode) {
+                    _searchByBarcode(q);
+                  } else if (_byArticle) {
+                    _searchByArticle(q);
+                  } else {
+                    _searchByName(q);
                   }
                 },
-                onChanged: (value) {
-                  if (value.trim().isEmpty && _searchController.text.isEmpty) {
-                    _searchByName('');
-                  }
+              ),
+              const SizedBox(height: 8),
+              _SearchSwitch(
+                byName: _byName,
+                byBarcode: _byBarcode,
+                byArticle: _byArticle,
+                onChanged: (mode) {
+                  setState(() {
+                    _byName = mode == _SearchMode.name;
+                    _byBarcode = mode == _SearchMode.barcode;
+                    _byArticle = mode == _SearchMode.article;
+                  });
                 },
               ),
             ],
@@ -304,3 +377,43 @@ class _FolderNode extends StatelessWidget {
     );
   }
 }
+
+class _SearchSwitch extends StatelessWidget {
+  const _SearchSwitch({
+    required this.byName,
+    required this.byBarcode,
+    required this.byArticle,
+    required this.onChanged,
+  });
+  final bool byName;
+  final bool byBarcode;
+  final bool byArticle;
+  final ValueChanged<_SearchMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final common.SearchParam current = byBarcode
+        ? common.SearchParam.barcode
+        : byArticle
+        ? common.SearchParam.article
+        : common.SearchParam.name;
+    return common.SearchModeSwitch(
+      value: current,
+      onChanged: (p) {
+        switch (p) {
+          case common.SearchParam.name:
+            onChanged(_SearchMode.name);
+            break;
+          case common.SearchParam.barcode:
+            onChanged(_SearchMode.barcode);
+            break;
+          case common.SearchParam.article:
+            onChanged(_SearchMode.article);
+            break;
+        }
+      },
+    );
+  }
+}
+
+enum _SearchMode { name, barcode, article }

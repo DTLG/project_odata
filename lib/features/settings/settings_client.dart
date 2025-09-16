@@ -65,7 +65,8 @@ class SettingsClient {
         throw Exception('HTTP request failed with status ${res.statusCode}');
       }
     } catch (e) {
-      throw Exception('Error sending request: $e');
+      throw Exception('Немає з\'єднання з сервером 1с');
+      // throw Exception('Error sending request: $e');
     } finally {
       client.close();
     }

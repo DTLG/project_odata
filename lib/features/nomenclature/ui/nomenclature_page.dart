@@ -319,15 +319,18 @@ class NomenclatureSelectionTab extends StatefulWidget {
 
 class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _barcodeController = TextEditingController();
+  // Single input used for all search modes
   bool _isSearchMode = false;
+  // search mode flags
+  bool _searchByName = true;
+  bool _searchByBarcode = false;
+  bool _searchByArticle = false;
   Timer? _debounce;
 
   @override
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
-    _barcodeController.dispose();
     super.dispose();
   }
 
@@ -342,19 +345,34 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
               TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  labelText: 'Пошук товару',
-                  hintText: 'Введіть назву товару',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
+                  labelText: 'Пошук',
+                  hintText: _searchByName
+                      ? 'Введіть назву'
+                      : _searchByBarcode
+                      ? 'Введіть/скануйте штрихкод'
+                      : 'Введіть артикул',
+                  prefixIcon: _searchByBarcode
+                      ? const Icon(Icons.qr_code_scanner)
+                      : const Icon(Icons.search),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_searchByBarcode)
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt),
+                          onPressed: _scanBarcode,
+                        ),
+                      if (_searchController.text.isNotEmpty)
+                        IconButton(
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
                             setState(() => _isSearchMode = false);
                             context.read<NomenclatureCubit>().loadRootTree();
                           },
-                        )
-                      : null,
+                        ),
+                    ],
+                  ),
                   border: const OutlineInputBorder(),
                 ),
                 onChanged: (value) {
@@ -362,44 +380,101 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
                   _debounce?.cancel();
                   _debounce = Timer(const Duration(milliseconds: 250), () {
                     if (!mounted) return;
-                    if (value.trim().isEmpty) {
+                    final q = value.trim();
+                    if (q.isEmpty) {
                       context.read<NomenclatureCubit>().loadRootTree();
+                      return;
+                    }
+                    if (_searchByBarcode) {
+                      context
+                          .read<NomenclatureCubit>()
+                          .searchNomenclatureByBarcode(q);
+                    } else if (_searchByArticle) {
+                      context
+                          .read<NomenclatureCubit>()
+                          .searchNomenclatureByArticle(q);
                     } else {
                       context
                           .read<NomenclatureCubit>()
-                          .searchNomenclatureByName(value);
+                          .searchNomenclatureByName(q);
                     }
                   });
                 },
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _barcodeController,
-                decoration: InputDecoration(
-                  labelText: 'Штрихкод',
-                  hintText: 'Введіть або відскануйте штрихкод',
-                  prefixIcon: const Icon(Icons.qr_code_scanner),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.camera_alt),
-                    onPressed: _scanBarcode,
-                  ),
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  if (value.trim().isEmpty && _searchController.text.isEmpty) {
-                    setState(() => _isSearchMode = false);
-                    context.read<NomenclatureCubit>().loadRootTree();
-                  }
-                },
                 onSubmitted: (value) {
-                  if (value.isNotEmpty) {
-                    setState(() => _isSearchMode = true);
+                  final q = value.trim();
+                  if (q.isEmpty) return;
+                  setState(() => _isSearchMode = true);
+                  if (_searchByBarcode) {
                     context
                         .read<NomenclatureCubit>()
-                        .searchNomenclatureByBarcode(value);
-                    _barcodeController.clear();
+                        .searchNomenclatureByBarcode(q);
+                  } else if (_searchByArticle) {
+                    context
+                        .read<NomenclatureCubit>()
+                        .searchNomenclatureByArticle(q);
+                  } else {
+                    context.read<NomenclatureCubit>().searchNomenclatureByName(
+                      q,
+                    );
                   }
                 },
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Назва'),
+
+                      value: _searchByName,
+                      onChanged: (v) {
+                        if (v == true) {
+                          setState(() {
+                            _searchByName = true;
+                            _searchByBarcode = false;
+                            _searchByArticle = false;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Штрихкод'),
+                      value: _searchByBarcode,
+                      onChanged: (v) {
+                        if (v == true) {
+                          setState(() {
+                            _searchByName = false;
+                            _searchByBarcode = true;
+                            _searchByArticle = false;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Артикул'),
+                      value: _searchByArticle,
+                      onChanged: (v) {
+                        if (v == true) {
+                          setState(() {
+                            _searchByName = false;
+                            _searchByBarcode = false;
+                            _searchByArticle = true;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -470,7 +545,8 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
         context.read<NomenclatureCubit>().searchNomenclatureByBarcode(
           result.rawContent,
         );
-        _barcodeController.clear();
+        // _barcodeController.clear();
+        _searchController.clear();
       } else if (result.type == ResultType.Error) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

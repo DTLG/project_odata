@@ -91,8 +91,8 @@ class AppRouter {
     }
   }
 
-  static void navigateTo(BuildContext context, String routeName) {
-    Navigator.pushNamed(context, routeName);
+  static void navigateTo(BuildContext context, String routeName) async {
+    await Navigator.pushNamed(context, routeName);
   }
 
   static void navigateToAndReplace(BuildContext context, String routeName) {

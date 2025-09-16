@@ -85,20 +85,19 @@ class NomenclatureRepositoryImpl implements NomenclatureRepository {
   }
 
   @override
-  Future<Either<Failure, NomenclatureEntity?>> searchNomenclatureByArticle(
+  Future<Either<Failure, List<NomenclatureEntity>>> searchNomenclatureByArticle(
     String article,
   ) async {
     try {
       if (article.trim().isEmpty) {
-        return const Right(null);
+        return const Right([]);
       }
 
-      final localNomenclature = await _localDatasource.getNomenclatureByArticle(
-        article,
-      );
-      final entity = localNomenclature?.toEntity();
+      // Return up to 100 LIKE matches for article
+      final locals = await _localDatasource.getNomenclatureByArticle(article);
+      final entities = locals?.map((model) => model.toEntity()).toList() ?? [];
 
-      return Right(entity);
+      return Right(entities);
     } catch (e) {
       return Left(CacheFailure('Помилка пошуку номенклатури за артикулом: $e'));
     }

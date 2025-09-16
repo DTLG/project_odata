@@ -190,7 +190,10 @@ class SqliteKontragentDatasourceImpl
       print('🔍 Отримуємо всіх контрагентів з SQLite...');
 
       final db = await database;
-      final List<Map<String, dynamic>> maps = await db.query(_tableName);
+      final List<Map<String, dynamic>> maps = await db.query(
+        _tableName,
+        orderBy: 'is_folder DESC, name ASC',
+      );
 
       print('📊 SQLite запит завершено:');
       print('   - Отримано записів: ${maps.length}');
@@ -227,6 +230,7 @@ class SqliteKontragentDatasourceImpl
         _tableName,
         where: 'guid = ?',
         whereArgs: [guid],
+        orderBy: 'is_folder DESC, name ASC',
         limit: 1,
       );
 
@@ -248,7 +252,7 @@ class SqliteKontragentDatasourceImpl
         _tableName,
         where: 'name LIKE ?',
         whereArgs: ['%$name%'],
-        orderBy: 'name',
+        orderBy: 'is_folder DESC, name ASC',
         limit: 100,
       );
 
@@ -269,7 +273,7 @@ class SqliteKontragentDatasourceImpl
         _tableName,
         where: 'edrpou LIKE ?',
         whereArgs: ['%$edrpou%'],
-        orderBy: 'name',
+        orderBy: 'is_folder DESC, name ASC',
         limit: 100,
       );
 
@@ -292,7 +296,7 @@ class SqliteKontragentDatasourceImpl
         _tableName,
         where: 'is_folder = ? AND parent_guid = ?',
         whereArgs: [1, '00000000-0000-0000-0000-000000000000'],
-        orderBy: 'name',
+        orderBy: 'is_folder DESC, name ASC',
         distinct: true,
       );
 
@@ -350,7 +354,7 @@ class SqliteKontragentDatasourceImpl
         _tableName,
         where: 'parent_guid = ?',
         whereArgs: [parentGuid],
-        orderBy: 'name',
+        orderBy: 'is_folder DESC, name ASC',
       );
 
       return maps.map((map) => _mapToModel(map)).toList();

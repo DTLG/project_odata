@@ -8,7 +8,7 @@ import '../../../core/config/supabase_config.dart';
 abstract class SqliteNomenclatureDatasource {
   Future<List<NomenclatureModel>> getAllNomenclature();
   Future<NomenclatureModel?> getNomenclatureByGuid(String guid);
-  Future<NomenclatureModel?> getNomenclatureByArticle(String article);
+  Future<List<NomenclatureModel>?> getNomenclatureByArticle(String article);
   Future<NomenclatureModel?> getNomenclatureByBarcode(String barcode);
   Future<List<NomenclatureModel>> searchNomenclatureByName(String name);
   Future<void> insertNomenclature(List<NomenclatureModel> nomenclatures);
@@ -373,7 +373,6 @@ class SqliteNomenclatureDatasourceImpl implements SqliteNomenclatureDatasource {
         _tableName,
         where: 'guid = ?',
         whereArgs: [guid],
-        limit: 1,
       );
 
       if (maps.isEmpty) return null;
@@ -388,24 +387,51 @@ class SqliteNomenclatureDatasourceImpl implements SqliteNomenclatureDatasource {
   }
 
   @override
-  Future<NomenclatureModel?> getNomenclatureByArticle(String article) async {
+  Future<List<NomenclatureModel>> getNomenclatureByArticle(
+    String article,
+  ) async {
     try {
       await _ensureSchemaLoaded();
       final db = await database;
       final List<Map<String, dynamic>> maps = await db.query(
         _tableName,
-        where: 'article = ?',
-        whereArgs: [article],
-        limit: 1,
+        where: 'article LIKE ?',
+        whereArgs: ['$article%'],
       );
 
-      if (maps.isEmpty) return null;
-      final model = _mapToModel(maps.first);
-      final hydrated = await _attachRelationsToModels(db, [model]);
-      return hydrated.first;
+      if (maps.isEmpty) return [];
+
+      final models = maps.map(_mapToModel).toList();
+      final hydrated = await _attachRelationsToModels(db, models);
+      return hydrated;
     } catch (e) {
       throw Exception(
         'Помилка при пошуку номенклатури за артикулом в локальній БД: $e',
+      );
+    }
+  }
+
+  Future<List<NomenclatureModel>> searchNomenclatureByArticleLike(
+    String article, {
+    int limit = 100,
+  }) async {
+    try {
+      await _ensureSchemaLoaded();
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        _tableName,
+        where: 'article LIKE ?',
+        whereArgs: ['%$article%'],
+        orderBy: 'name ASC',
+        limit: limit,
+      );
+      if (maps.isEmpty) return const [];
+      final models = maps.map((e) => _mapToModel(e)).toList();
+      final hydrated = await _attachRelationsToModels(db, models);
+      return hydrated;
+    } catch (e) {
+      throw Exception(
+        'Помилка при пошуку номенклатури за артикулом (LIKE) в локальній БД: $e',
       );
     }
   }
@@ -421,7 +447,6 @@ class SqliteNomenclatureDatasourceImpl implements SqliteNomenclatureDatasource {
         columns: ['nom_guid'],
         where: 'barcode = ?',
         whereArgs: [barcode],
-        limit: 1,
       );
       if (rows.isEmpty) return null;
       final guid = rows.first['nom_guid'] as String;

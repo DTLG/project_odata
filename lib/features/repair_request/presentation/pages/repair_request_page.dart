@@ -18,6 +18,7 @@ import '../../data/repositories/types_of_repair_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/supabase_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/routes/app_router.dart';
 
 class RepairRequestPage extends StatefulWidget {
   final RepairRequestEntity? initial;
@@ -388,10 +389,14 @@ class _RepairRequestPageState extends State<RepairRequestPage>
                       builder: (context, s) {
                         return RepairConfirmationTab(
                           readOnly: _readOnly,
-                          onSaveLocal: () => _saveLocal(innerCtx),
+                          onSaveLocal: () {
+                            _saveLocal(innerCtx);
+                            AppRouter.goBack(context);
+                          },
                           onSend: () async {
                             await _saveLocal(innerCtx);
                             await _sendToServer(innerCtx);
+                            AppRouter.goBack(context);
                           },
                           customer: s.customer ?? _customer,
                           nomenclatureGuid: s.nomenclatureGuid.isNotEmpty

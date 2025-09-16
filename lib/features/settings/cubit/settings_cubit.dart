@@ -20,6 +20,46 @@ class SettingsCubit extends Cubit<SettingsState> {
     emit(state.copyWith(agent: agent, agentName: agentName));
   }
 
+  // Home icons visibility
+  Future<void> loadHomeIcons() async {
+    final prefs = await SharedPreferences.getInstance();
+    emit(
+      state.copyWith(
+        showLabelPrint: prefs.getBool('home_show_label_print') ?? true,
+        showNomenclature: prefs.getBool('home_show_nomenclature') ?? true,
+        showCustomerOrders: prefs.getBool('home_show_customer_orders') ?? true,
+        showInventoryCheck: prefs.getBool('home_show_inventory_check') ?? true,
+        showKontragenty: prefs.getBool('home_show_kontragenty') ?? true,
+        showRepairRequests: prefs.getBool('home_show_repair_requests') ?? true,
+      ),
+    );
+  }
+
+  Future<void> setHomeIcon(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+    switch (key) {
+      case 'home_show_label_print':
+        emit(state.copyWith(showLabelPrint: value));
+        break;
+      case 'home_show_nomenclature':
+        emit(state.copyWith(showNomenclature: value));
+        break;
+      case 'home_show_customer_orders':
+        emit(state.copyWith(showCustomerOrders: value));
+        break;
+      case 'home_show_inventory_check':
+        emit(state.copyWith(showInventoryCheck: value));
+        break;
+      case 'home_show_kontragenty':
+        emit(state.copyWith(showKontragenty: value));
+        break;
+      case 'home_show_repair_requests':
+        emit(state.copyWith(showRepairRequests: value));
+        break;
+    }
+  }
+
   Future<void> getApiData() async {
     try {
       final conn = await getdbConn();

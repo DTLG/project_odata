@@ -13,13 +13,14 @@ class SearchNomenclatureByArticleParams {
 
 /// Use case для пошуку номенклатури за артикулом
 class SearchNomenclatureByArticleUseCase
-    implements UseCase<NomenclatureEntity?, SearchNomenclatureByArticleParams> {
+    implements
+        UseCase<List<NomenclatureEntity>, SearchNomenclatureByArticleParams> {
   final NomenclatureRepository _repository;
 
   SearchNomenclatureByArticleUseCase(this._repository);
 
   @override
-  Future<Either<Failure, NomenclatureEntity?>> call(
+  Future<Either<Failure, List<NomenclatureEntity>>> call(
     SearchNomenclatureByArticleParams params,
   ) async {
     return await _repository.searchNomenclatureByArticle(params.article);

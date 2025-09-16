@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/routes/app_router.dart';
 import '../cubit/customer_order_cubit.dart';
 import '../widgets/customer_selection_tab.dart';
 import '../widgets/cart_tab.dart';
@@ -140,11 +141,14 @@ class _CustomerOrderViewState extends State<_CustomerOrderView>
                 },
               ),
               OrderConfirmationTab(
-                onCreateOrder: () {
-                  context.read<CustomerOrderCubit>().createOrder();
+                onCreateOrder: () async {
+                  await context.read<CustomerOrderCubit>().createOrder();
+
+                  AppRouter.goBack(context);
                 },
                 onSaveLocal: () async {
                   await context.read<CustomerOrderCubit>().saveLocalDraft();
+                  AppRouter.goBack(context);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
