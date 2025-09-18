@@ -95,28 +95,34 @@ class SupabaseNomenclatureDatasourceImpl
   Future<List<NomenclatureModel>> getAllNomenclature() async {
     try {
       final allRecords = <Map<String, dynamic>>[];
-      int pageSize = 1000; // Розмір сторінки
-      int currentPage = 0;
-      bool hasMoreData = true;
+      const int pageSize = 1000;
+      int lastId = 0; // курсор по колонці id
+      int page = 1;
 
-      while (hasMoreData) {
-        final offset = currentPage * pageSize;
-
+      while (true) {
         final response = await _schemaClient
             .from(_tableName)
             .select(_baseSelect)
-            .order('name')
-            .range(offset, offset + pageSize - 1);
+            .gt('id', lastId)
+            .order('id', ascending: true)
+            .limit(pageSize);
 
-        if (response.isEmpty || response.length < pageSize) {
-          hasMoreData = false;
+        if (response.isEmpty) break;
+
+        for (final row in response) {
+          final idValue = row['id'];
+          if (idValue is int) {
+            lastId = idValue;
+          } else if (idValue is num) {
+            lastId = idValue.toInt();
+          }
+          allRecords.add(row as Map<String, dynamic>);
         }
 
-        allRecords.addAll(response);
-        currentPage++;
-
-        if (hasMoreData && currentPage % 10 == 0) {
-          await Future.delayed(const Duration(milliseconds: 500));
+        if (response.length < pageSize) break; // останній пакет
+        page += 1;
+        if (page % 10 == 0) {
+          await Future.delayed(const Duration(milliseconds: 200));
         }
       }
 
@@ -150,34 +156,38 @@ class SupabaseNomenclatureDatasourceImpl
   }) async {
     try {
       final allRecords = <Map<String, dynamic>>[];
-      int pageSize = 1000;
-      int currentPage = 0;
-      bool hasMoreData = true;
+      const int pageSize = 1000;
+      int lastId = 0; // курсор по колонці id
+      int page = 1;
       int estimatedTotal = 46000; // Очікуване значення
 
       onProgress?.call('Початок завантаження...', 0, estimatedTotal);
 
-      while (hasMoreData) {
-        final offset = currentPage * pageSize;
-
+      while (true) {
         onProgress?.call(
-          'Завантаження сторінки ${currentPage + 1}...',
+          'Завантаження пакету $page (id > $lastId)...',
           allRecords.length,
           estimatedTotal,
         );
 
         final response = await _schemaClient
             .from(_tableName)
-            .select(_baseSelect)
-            .order('name')
-            .range(offset, offset + pageSize - 1);
+            .select('*')
+            .gt('id', lastId)
+            .order('id', ascending: true)
+            .limit(pageSize);
 
-        if (response.isEmpty || response.length < pageSize) {
-          hasMoreData = false;
+        if (response.isEmpty) break;
+
+        for (final row in response) {
+          final idValue = row['id'];
+          if (idValue is int) {
+            lastId = idValue;
+          } else if (idValue is num) {
+            lastId = idValue.toInt();
+          }
+          allRecords.add(row as Map<String, dynamic>);
         }
-
-        allRecords.addAll(response);
-        currentPage++;
 
         if (response.length == pageSize &&
             estimatedTotal < allRecords.length + 1000) {
@@ -185,12 +195,18 @@ class SupabaseNomenclatureDatasourceImpl
         }
 
         onProgress?.call(
-          'Завантажено ${allRecords.length} записів...',
+          'Завантажено ${allRecords.length} записів (lastId=$lastId)...',
           allRecords.length,
           estimatedTotal,
         );
 
-        if (hasMoreData && currentPage % 10 == 0) {
+        if (response.length < pageSize) break; // останній пакет
+        page += 1;
+        print(
+          'Nomenclature: page: $page lastId: $lastId response.length: ${response.length}',
+        );
+
+        if (page % 10 == 0) {
           await Future.delayed(const Duration(milliseconds: 200));
         }
       }

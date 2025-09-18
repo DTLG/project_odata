@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 // removed unused repair_config import
-import '../../../../data/datasources/local/sqflite_nomenclature_datasource.dart';
+import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
 import '../../../../core/injection/injection_container.dart';
 // removed unused NomenclatureModel import
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -40,7 +40,7 @@ class _RepairDetailsTabState extends State<RepairDetailsTab> {
       }
       guids.removeWhere((g) => g.isEmpty);
       if (guids.isEmpty) return;
-      final ds = sl<SqliteNomenclatureDatasource>();
+      final ds = sl<NomenclatureLocalDatasource>();
       for (final g in guids) {
         final model = await ds.getNomenclatureByGuid(g);
         if (model != null) {

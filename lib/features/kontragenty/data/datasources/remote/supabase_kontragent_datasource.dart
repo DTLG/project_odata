@@ -14,40 +14,39 @@ class SupabaseKontragentDatasourceImpl implements KontragentRemoteDataSource {
     try {
       print('🌐 Завантажуємо всіх контрагентів з Supabase...');
 
-      List<KontragentModel> allModels = [];
-      int offset = 0;
-      const int batchSize = 1000; // Розмір пакету для завантаження
+      final List<KontragentModel> allModels = [];
+      const int batchSize = 1000;
+      int lastId = 0; // курсор по колонці id
+      int page = 1;
 
       while (true) {
-        print(
-          '📦 Завантажуємо пакет ${(offset ~/ batchSize) + 1} (offset: $offset)...',
-        );
+        print('📦 Пакет $page (id > $lastId, limit: $batchSize)');
 
         final response = await _supabaseClient
             .schema(SupabaseConfig.schema)
             .from('kontragenty')
             .select('*')
-            .order('created_at', ascending: false)
-            .range(offset, offset + batchSize - 1);
+            .gt('id', lastId)
+            .order('id', ascending: true)
+            .limit(batchSize);
 
-        final batchModels = (response as List)
-            .map(
-              (json) => KontragentModel.fromJson(json as Map<String, dynamic>),
-            )
-            .toList();
+        final rows = response as List;
+        if (rows.isEmpty) break;
 
-        allModels.addAll(batchModels);
-
-        print(
-          '📊 Пакет ${(offset ~/ batchSize) + 1}: ${batchModels.length} записів',
-        );
-
-        // Якщо отримали менше записів ніж розмір пакету, це останній пакет
-        if (batchModels.length < batchSize) {
-          break;
+        for (final row in rows) {
+          final map = row as Map<String, dynamic>;
+          final idValue = map['id'];
+          if (idValue is int) {
+            lastId = idValue;
+          } else if (idValue is num) {
+            lastId = idValue.toInt();
+          }
+          allModels.add(KontragentModel.fromJson(map));
         }
 
-        offset += batchSize;
+        print('📊 Пакет $page: ${rows.length} записів (lastId=$lastId)');
+        if (rows.length < batchSize) break; // останній неповний пакет
+        page += 1;
       }
 
       print('✅ Завантажено ${allModels.length} контрагентів з Supabase');

@@ -5,7 +5,7 @@ import '../../../kontragenty/data/datasources/kontragent_local_data_source.dart'
 import '../../../kontragenty/data/models/kontragent_model.dart';
 import '../../data/models/repair_request_model.dart';
 import 'repair_request_page.dart';
-import '../../../../data/datasources/local/sqflite_nomenclature_datasource.dart';
+import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
 import '../../data/datasources/local/repair_local_data_source.dart';
 import '../../../../core/injection/injection_container.dart';
 
@@ -116,7 +116,7 @@ class RepairRequestsListPage extends StatefulWidget {
 class _RepairRequestsListPageState extends State<RepairRequestsListPage> {
   late final RepairLocalDataSource _local;
   late final KontragentLocalDataSource _kontrLocal;
-  late final SqliteNomenclatureDatasource _nomLocal;
+  late final NomenclatureLocalDatasource _nomLocal;
   List<RepairRequestModel> _items = const [];
   final Map<String, String> _customerNameByGuid = {};
   bool _loading = true;
@@ -130,7 +130,7 @@ class _RepairRequestsListPageState extends State<RepairRequestsListPage> {
     super.initState();
     _local = RepairLocalDataSourceImpl();
     _kontrLocal = sl<KontragentLocalDataSource>();
-    _nomLocal = sl<SqliteNomenclatureDatasource>();
+    _nomLocal = sl<NomenclatureLocalDatasource>();
     _load();
     _prefetchNomenclature();
     _subscribeRealtime();

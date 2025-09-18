@@ -15,12 +15,32 @@ import '../../../kontragenty/domain/entities/kontragent_entity.dart';
 class CustomerOrderPage extends StatelessWidget {
   final CustomerOrderEntity? initialOrder;
   final KontragentEntity? initialCustomer;
-  const CustomerOrderPage({super.key, this.initialOrder, this.initialCustomer});
+  final CustomerOrderCubit? cubit;
+  const CustomerOrderPage({
+    super.key,
+    this.initialOrder,
+    this.initialCustomer,
+    this.cubit,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final provided = cubit;
+    if (provided != null) {
+      return BlocProvider.value(
+        value: provided,
+        child: _CustomerOrderView(
+          initialOrder: initialOrder,
+          initialCustomer: initialCustomer,
+        ),
+      );
+    }
     return BlocProvider(
-      create: (context) => sl<CustomerOrderCubit>(),
+      create: (context) {
+        final c = sl<CustomerOrderCubit>();
+        // Future.microtask(() => c.initialize());
+        return c;
+      },
       child: _CustomerOrderView(
         initialOrder: initialOrder,
         initialCustomer: initialCustomer,
@@ -29,139 +49,133 @@ class CustomerOrderPage extends StatelessWidget {
   }
 }
 
-class _CustomerOrderView extends StatefulWidget {
+class _CustomerOrderView extends StatelessWidget {
   final CustomerOrderEntity? initialOrder;
   final KontragentEntity? initialCustomer;
   const _CustomerOrderView({this.initialOrder, this.initialCustomer});
 
   @override
-  State<_CustomerOrderView> createState() => _CustomerOrderViewState();
-}
-
-class _CustomerOrderViewState extends State<_CustomerOrderView>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    // Initialize the cubit to load all data once
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cubit = context.read<CustomerOrderCubit>();
-      cubit.initialize().then((_) {
-        if (widget.initialOrder != null) {
-          cubit.loadExistingOrder(
-            widget.initialOrder!,
-            customer: widget.initialCustomer,
-          );
-        }
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Замовлення клієнта'),
-        bottom: TabBar(
-          indicatorColor: AppTheme.accentColor,
-          unselectedLabelColor: Colors.white,
-          labelColor: AppTheme.accentColor,
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.person), text: 'Клієнт'),
-            Tab(icon: Icon(Icons.list_alt), text: 'Товари'),
-            Tab(icon: Icon(Icons.shopping_cart), text: 'Кошик'),
-            Tab(icon: Icon(Icons.check_circle), text: 'Підтвердження'),
-          ],
-        ),
-      ),
-      body: BlocConsumer<CustomerOrderCubit, CustomerOrderState>(
-        listener: (context, state) {
-          if (state is CustomerOrderError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          } else if (state is OrderCreated) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Замовлення ${state.order.number} створено успішно!',
-                ),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-            // Reset to initial state and reinitialize
-            context.read<CustomerOrderCubit>().reset();
-            context.read<CustomerOrderCubit>().initialize();
-            _tabController.animateTo(0);
-          }
-        },
-        builder: (context, state) {
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              CustomerSelectionTab(
-                onCustomerSelected: (customer) {
-                  context.read<CustomerOrderCubit>().setSelectedCustomer(
-                    customer,
-                  );
-                  _tabController.animateTo(1);
-                },
-              ),
-              ProductSelectionTab(
-                onItemAdded: (item) {
-                  context.read<CustomerOrderCubit>().addOrderItem(item);
-                },
-              ),
-              CartTab(
-                onItemAdded: (item) {
-                  context.read<CustomerOrderCubit>().addOrderItem(item);
-                },
-                onItemRemoved: (itemId) {
-                  context.read<CustomerOrderCubit>().removeOrderItem(itemId);
-                },
-                onQuantityChanged: (itemId, quantity) {
-                  context.read<CustomerOrderCubit>().updateItemQuantity(
-                    itemId,
-                    quantity,
-                  );
-                },
-              ),
-              OrderConfirmationTab(
-                onCreateOrder: () async {
-                  await context.read<CustomerOrderCubit>().createOrder();
-
-                  AppRouter.goBack(context);
-                },
-                onSaveLocal: () async {
-                  await context.read<CustomerOrderCubit>().saveLocalDraft();
-                  AppRouter.goBack(context);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Замовлення збережено локально'),
-                        backgroundColor: Colors.blue,
-                      ),
-                    );
-                  }
-                },
-              ),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Замовлення клієнта'),
+          bottom: TabBar(
+            indicatorColor: AppTheme.accentColor,
+            unselectedLabelColor: Colors.white,
+            labelColor: AppTheme.accentColor,
+            tabs: const [
+              Tab(icon: Icon(Icons.person), text: 'Клієнт'),
+              Tab(icon: Icon(Icons.list_alt), text: 'Товари'),
+              Tab(icon: Icon(Icons.shopping_cart), text: 'Кошик'),
+              Tab(icon: Icon(Icons.check_circle), text: 'Підтвердження'),
             ],
-          );
-        },
+          ),
+        ),
+        body: BlocConsumer<CustomerOrderCubit, CustomerOrderState>(
+          listener: (context, state) {
+            if (state is CustomerOrderError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            } else if (state is OrderCreated) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Замовлення ${state.order.number} створено успішно!',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+              context.read<CustomerOrderCubit>().reset();
+              context.read<CustomerOrderCubit>().initialize();
+              DefaultTabController.of(context).animateTo(0);
+            } else if (state is CustomerOrderInitialized &&
+                initialOrder != null) {
+              context.read<CustomerOrderCubit>().loadExistingOrder(
+                initialOrder!,
+                customer: initialCustomer,
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state is CustomerOrderLoading ||
+                state is CustomerOrderInitial) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (state is CustomerOrderError) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(state.message),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () =>
+                          context.read<CustomerOrderCubit>().initialize(),
+                      child: const Text('Спробувати ще раз'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return TabBarView(
+              children: [
+                CustomerSelectionTab(
+                  onCustomerSelected: (customer) {
+                    context.read<CustomerOrderCubit>().setSelectedCustomer(
+                      customer,
+                    );
+                    DefaultTabController.of(context).animateTo(1);
+                  },
+                ),
+                ProductSelectionTab(
+                  onItemAdded: (item) {
+                    context.read<CustomerOrderCubit>().addOrderItem(item);
+                  },
+                ),
+                CartTab(
+                  onItemAdded: (item) {
+                    context.read<CustomerOrderCubit>().addOrderItem(item);
+                  },
+                  onItemRemoved: (itemId) {
+                    context.read<CustomerOrderCubit>().removeOrderItem(itemId);
+                  },
+                  onQuantityChanged: (itemId, quantity) {
+                    context.read<CustomerOrderCubit>().updateItemQuantity(
+                      itemId,
+                      quantity,
+                    );
+                  },
+                ),
+                OrderConfirmationTab(
+                  onCreateOrder: () async {
+                    await context.read<CustomerOrderCubit>().createOrder();
+                    AppRouter.goBack(context);
+                  },
+                  onSaveLocal: () async {
+                    await context.read<CustomerOrderCubit>().saveLocalDraft();
+                    AppRouter.goBack(context);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Замовлення збережено локально'),
+                          backgroundColor: Colors.blue,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

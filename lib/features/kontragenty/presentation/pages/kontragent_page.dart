@@ -6,6 +6,9 @@ import '../widgets/kontragent_item_widget.dart';
 import '../../../../core/injection/injection_container.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/config/supabase_config.dart';
+import '../../../../core/objectbox/objectbox_entities.dart';
+import '../../domain/entities/kontragent_entity.dart';
+import 'package:project_odata/objectbox.dart';
 
 /// Page for displaying kontragenty
 class KontragentPage extends StatelessWidget {
@@ -20,8 +23,44 @@ class KontragentPage extends StatelessWidget {
   }
 }
 
-class _KontragentView extends StatelessWidget {
+class _KontragentView extends StatefulWidget {
   const _KontragentView();
+
+  @override
+  State<_KontragentView> createState() => _KontragentViewState();
+}
+
+class _KontragentViewState extends State<_KontragentView> {
+  ObjectBox? _obx;
+  bool _loading = true;
+  List<KontragentObx> _roots = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final obx = sl<ObjectBox>();
+    final roots = obx.getRootKontragenty();
+    setState(() {
+      _obx = obx;
+      _roots = roots;
+      _loading = false;
+    });
+    if (roots.isEmpty) {
+      // Якщо порожньо – ініціюємо синхронізацію через кубіт, після чого оновимо локальні дані
+      // await context.read<KontragentCubit>().syncKontragenty();
+      await _reloadFromLocal();
+    }
+  }
+
+  Future<void> _reloadFromLocal() async {
+    if (_obx == null) return;
+    final roots = _obx!.getRootKontragenty();
+    setState(() => _roots = roots);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,8 +69,9 @@ class _KontragentView extends StatelessWidget {
         title: const Text('Контрагенти'),
         actions: [
           IconButton(
-            onPressed: () {
-              context.read<KontragentCubit>().syncKontragenty();
+            onPressed: () async {
+              await context.read<KontragentCubit>().syncKontragenty();
+              await _reloadFromLocal();
             },
             icon: const Icon(Icons.sync),
             tooltip: 'Синхронізувати',
@@ -52,106 +92,46 @@ class _KontragentView extends StatelessWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => context.read<KontragentCubit>().loadRootFolders(),
-        child: BlocConsumer<KontragentCubit, KontragentState>(
-          listener: (context, state) {
-            if (state is KontragentError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            if (state is KontragentInitial || state is KontragentLoading) {
-              if (state is KontragentInitial) {
-                // Спочатку перевіряємо чи є локальні дані, якщо ні - синхронізуємо
-                _checkAndSyncIfNeeded(context);
-              }
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (state is KontragentTreeLoaded) {
-              return _buildHierarchicalView(context, state.rootFolders);
-            }
-
-            if (state is KontragentLoaded) {
-              return _buildListView(context, state.kontragenty);
-            }
-
-            return const Center(child: Text('Немає даних для відображення'));
-          },
-        ),
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _reloadFromLocal,
+              child: Column(
+                children: [
+                  const KontragentSearchWidget(),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _roots.length,
+                      itemBuilder: (context, index) {
+                        final folder = _roots[index];
+                        return _FolderNode(
+                          entity: folder,
+                          loadChildren: _loadChildren,
+                          toEntity: _toEntity,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildHierarchicalView(
-    BuildContext context,
-    List<dynamic> rootFolders,
-  ) {
-    return Column(
-      children: [
-        const KontragentSearchWidget(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: rootFolders.length,
-            itemBuilder: (context, index) {
-              final folder = rootFolders[index];
-              return _FolderNode(
-                entity: folder,
-                cubit: context.read<KontragentCubit>(),
-              );
-            },
-          ),
-        ),
-      ],
-    );
+  Future<List<KontragentObx>> _loadChildren(String parentGuid) async {
+    if (_obx == null) return const [];
+    return _obx!.getChildrenKontragenty(parentGuid);
   }
 
-  Widget _buildListView(BuildContext context, List<dynamic> kontragenty) {
-    return Column(
-      children: [
-        const KontragentSearchWidget(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: kontragenty.length,
-            itemBuilder: (context, index) {
-              final kontragent = kontragenty[index];
-              return KontragentItemWidget(kontragent: kontragent);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _checkAndSyncIfNeeded(BuildContext context) async {
-    final cubit = context.read<KontragentCubit>();
-
-    // Перевіряємо кількість локальних записів
-    final countResult = await cubit.getKontragentyCountUseCase(NoParams());
-
-    countResult.fold(
-      (failure) {
-        // Якщо не вдалося отримати кількість, спробуємо синхронізувати
-        print('⚠️ Не вдалося отримати кількість записів, синхронізуємо...');
-        cubit.syncKontragenty();
-      },
-      (count) {
-        if (count == 0) {
-          print('📊 Локальних записів немає ($count), синхронізуємо...');
-          cubit.syncKontragenty();
-        } else {
-          print('📊 Знайдено $count локальних записів, завантажуємо...');
-          cubit.loadRootFolders();
-        }
-      },
-    );
-  }
+  KontragentEntity _toEntity(KontragentObx k) => KontragentEntity(
+    guid: k.guid,
+    name: k.name,
+    edrpou: k.edrpou ?? '',
+    isFolder: k.isFolder,
+    parentGuid: k.parentGuid,
+    description: '',
+    createdAt: DateTime.now(),
+  );
 
   void _showClearDataDialog(BuildContext context, KontragentCubit cubit) {
     showDialog(
@@ -275,9 +255,14 @@ class _KontragentView extends StatelessWidget {
 }
 
 class _FolderNode extends StatelessWidget {
-  const _FolderNode({required this.entity, required this.cubit});
-  final dynamic entity;
-  final KontragentCubit cubit;
+  const _FolderNode({
+    required this.entity,
+    required this.loadChildren,
+    required this.toEntity,
+  });
+  final KontragentObx entity;
+  final Future<List<KontragentObx>> Function(String parentGuid) loadChildren;
+  final KontragentEntity Function(KontragentObx) toEntity;
 
   @override
   Widget build(BuildContext context) {
@@ -285,15 +270,19 @@ class _FolderNode extends StatelessWidget {
       return _LazyExpansionTile(
         title: Text(entity.name),
         leading: const Icon(Icons.folder),
-        loadChildren: () => cubit.loadChildren(entity.guid),
+        loadChildren: () => loadChildren(entity.guid),
         itemBuilder: (context, child) {
           return child.isFolder
-              ? _FolderNode(entity: child, cubit: cubit)
-              : KontragentItemWidget(kontragent: child);
+              ? _FolderNode(
+                  entity: child,
+                  loadChildren: loadChildren,
+                  toEntity: toEntity,
+                )
+              : KontragentItemWidget(kontragent: toEntity(child));
         },
       );
     }
-    return KontragentItemWidget(kontragent: entity);
+    return KontragentItemWidget(kontragent: toEntity(entity));
   }
 }
 
@@ -306,8 +295,8 @@ class _LazyExpansionTile extends StatefulWidget {
   });
   final Widget title;
   final Widget leading;
-  final Future<List<dynamic>> Function() loadChildren;
-  final Widget Function(BuildContext, dynamic) itemBuilder;
+  final Future<List<KontragentObx>> Function() loadChildren;
+  final Widget Function(BuildContext, KontragentObx) itemBuilder;
 
   @override
   State<_LazyExpansionTile> createState() => _LazyExpansionTileState();
@@ -315,7 +304,7 @@ class _LazyExpansionTile extends StatefulWidget {
 
 class _LazyExpansionTileState extends State<_LazyExpansionTile> {
   bool _expanded = false;
-  Future<List<dynamic>>? _future;
+  Future<List<KontragentObx>>? _future;
 
   @override
   Widget build(BuildContext context) {
@@ -330,7 +319,7 @@ class _LazyExpansionTileState extends State<_LazyExpansionTile> {
       },
       children: _expanded
           ? [
-              FutureBuilder<List<dynamic>>(
+              FutureBuilder<List<KontragentObx>>(
                 future: _future,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {

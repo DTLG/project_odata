@@ -2,19 +2,19 @@ import 'package:dartz/dartz.dart';
 import '../../core/entities/nomenclature_entity.dart';
 import '../../core/errors/failures.dart';
 import '../../core/repositories/nomenclature_repository.dart';
-import '../datasources/local/sqflite_nomenclature_datasource.dart';
 import '../datasources/remote/supabase_nomenclature_datasource.dart';
 import '../models/nomenclature_model.dart';
+import '../datasources/local/nomenclature_local_datasource.dart';
 
 /// Конкретна реалізація репозиторію номенклатури
 /// Дотримується принципу Single Responsibility та Dependency Inversion (SOLID)
 class NomenclatureRepositoryImpl implements NomenclatureRepository {
   final SupabaseNomenclatureDatasource _remoteDatasource;
-  final SqliteNomenclatureDatasource _localDatasource;
+  final NomenclatureLocalDatasource _localDatasource;
 
   NomenclatureRepositoryImpl({
     required SupabaseNomenclatureDatasource remoteDatasource,
-    required SqliteNomenclatureDatasource localDatasource,
+    required NomenclatureLocalDatasource localDatasource,
   }) : _remoteDatasource = remoteDatasource,
        _localDatasource = localDatasource;
 

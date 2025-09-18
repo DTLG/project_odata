@@ -4,6 +4,7 @@ import '../../domain/entities/kontragent_entity.dart';
 import '../../domain/repositories/kontragent_repository.dart';
 import '../datasources/kontragent_remote_data_source.dart';
 import '../datasources/kontragent_local_data_source.dart';
+import '../models/kontragent_model.dart';
 
 /// Implementation of kontragent repository
 class KontragentRepositoryImpl implements KontragentRepository {
@@ -27,9 +28,47 @@ class KontragentRepositoryImpl implements KontragentRepository {
         '📊 Отримано ${remoteKontragenty.length} контрагентів з віддаленого джерела',
       );
 
-      // Save to local storage
-      print('💾 Зберігаємо дані в локальне сховище...');
-      await localDataSource.insertKontragenty(remoteKontragenty);
+      // Debug: find and print duplicates by GUID
+      final Map<String, List<KontragentEntity>> byGuidAll = {};
+      for (final k in remoteKontragenty) {
+        final key = (k.guid).trim();
+        (byGuidAll[key] ??= []).add(k);
+      }
+      int dupGroups = 0;
+      int dupItems = 0;
+      byGuidAll.forEach((guid, list) {
+        if (guid.isEmpty) return;
+        if (list.length > 1) {
+          dupGroups++;
+          dupItems += list.length;
+          print('🔁 DUP GUID=$guid x${list.length}');
+          for (int i = 0; i < list.length; i++) {
+            final it = list[i];
+            print(
+              '   • [$i] name="${it.name}" parentGuid=${it.parentGuid} isFolder=${it.isFolder}',
+            );
+          }
+        }
+      });
+      if (dupGroups > 0) {
+        print(
+          '⚠️ Знайдено груп дублікатів: $dupGroups, елементів у них: $dupItems',
+        );
+      } else {
+        print('✅ Дублікатів по GUID не знайдено');
+      }
+
+      // Deduplicate by GUID to avoid duplicates
+      final Map<String, KontragentEntity> byGuid = {
+        for (final k in remoteKontragenty) k.guid: k,
+      };
+
+      // Save to local storage (replace existing)
+      print('💾 Очищаємо та зберігаємо дані в локальне сховище...');
+      await localDataSource.clearAllData();
+      await localDataSource.insertKontragenty(
+        byGuid.values.map((e) => KontragentModel.fromEntity(e)).toList(),
+      );
       print('✅ Синхронізація завершена успішно');
 
       return Right(remoteKontragenty);

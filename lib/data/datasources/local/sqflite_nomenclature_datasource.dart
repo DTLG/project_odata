@@ -3,25 +3,9 @@ import 'package:path/path.dart';
 import '../../models/nomenclature_model.dart';
 import '../../../core/database/sqlite_helper.dart';
 import '../../../core/config/supabase_config.dart';
+import 'nomenclature_local_datasource.dart';
 
-/// Абстрактний інтерфейс для локального джерела даних номенклатури через SQLite
-abstract class SqliteNomenclatureDatasource {
-  Future<List<NomenclatureModel>> getAllNomenclature();
-  Future<NomenclatureModel?> getNomenclatureByGuid(String guid);
-  Future<List<NomenclatureModel>?> getNomenclatureByArticle(String article);
-  Future<NomenclatureModel?> getNomenclatureByBarcode(String barcode);
-  Future<List<NomenclatureModel>> searchNomenclatureByName(String name);
-  Future<void> insertNomenclature(List<NomenclatureModel> nomenclatures);
-  Future<void> clearAllNomenclature();
-  Future<int> getNomenclatureCount();
-  Future<void> updateNomenclature(NomenclatureModel nomenclature);
-  Future<void> deleteNomenclature(String guid);
-  Future<Map<String, dynamic>> debugDatabase();
-  Future<void> recreateDatabase();
-}
-
-/// Реалізація локального джерела даних через SQLite
-class SqliteNomenclatureDatasourceImpl implements SqliteNomenclatureDatasource {
+class SqliteNomenclatureDatasourceImpl implements NomenclatureLocalDatasource {
   static Database? _database;
 
   String get _tableName => SupabaseConfig.schema + '_nomenclature';

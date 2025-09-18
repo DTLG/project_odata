@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:project_odata/objectbox.dart';
 import '../../../core/injection/injection_container.dart';
 import '../cubit/nomenclature_cubit.dart';
 import '../cubit/nomenclature_state.dart';
 import '../../../core/entities/nomenclature_entity.dart';
-import 'widgets/nomenclature_search_widget.dart';
 import 'widgets/nomenclature_item_widget.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
+import '../../common/widgets/search_mode_switch.dart' as common;
+import '../../../core/objectbox/objectbox_entities.dart';
+import 'package:project_odata/objectbox.g.dart';
 
 /// Сторінка номенклатури
 class NomenclaturePage extends StatelessWidget {
@@ -16,7 +19,7 @@ class NomenclaturePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<NomenclatureCubit>(
-      create: (context) => sl<NomenclatureCubit>()..loadRootTree(),
+      create: (context) => sl<NomenclatureCubit>(), //..loadRootTree(),
       child: const NomenclatureView(),
     );
   }
@@ -30,7 +33,9 @@ class NomenclatureView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<NomenclatureCubit, NomenclatureState>(
       listener: (context, state) {
-        if (state is NomenclatureLoadingWithProgress) {
+        if (state is NomenclatureInitial) {
+          context.read<NomenclatureCubit>().loadRootTree();
+        } else if (state is NomenclatureLoadingWithProgress) {
           _showProgressDialog(context, state);
         } else if (state is NomenclatureSyncSuccess) {
           if (_progressDialogShown) {
@@ -420,61 +425,17 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
                 },
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Назва'),
-
-                      value: _searchByName,
-                      onChanged: (v) {
-                        if (v == true) {
-                          setState(() {
-                            _searchByName = true;
-                            _searchByBarcode = false;
-                            _searchByArticle = false;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Штрихкод'),
-                      value: _searchByBarcode,
-                      onChanged: (v) {
-                        if (v == true) {
-                          setState(() {
-                            _searchByName = false;
-                            _searchByBarcode = true;
-                            _searchByArticle = false;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Артикул'),
-                      value: _searchByArticle,
-                      onChanged: (v) {
-                        if (v == true) {
-                          setState(() {
-                            _searchByName = false;
-                            _searchByBarcode = false;
-                            _searchByArticle = true;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ],
+              _SearchSwitch(
+                byName: _searchByName,
+                byBarcode: _searchByBarcode,
+                byArticle: _searchByArticle,
+                onChanged: (mode) {
+                  setState(() {
+                    _searchByName = mode == _SearchMode.name;
+                    _searchByBarcode = mode == _SearchMode.barcode;
+                    _searchByArticle = mode == _SearchMode.article;
+                  });
+                },
               ),
             ],
           ),
@@ -482,6 +443,9 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
         Expanded(
           child: BlocBuilder<NomenclatureCubit, NomenclatureState>(
             builder: (context, state) {
+              if (state is NomenclatureInitial) {
+                context.read<NomenclatureCubit>().loadRootTree();
+              }
               if (state is NomenclatureLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -621,35 +585,93 @@ class _NomenclatureTree extends StatelessWidget {
     return ListView.builder(
       itemCount: roots.length,
       itemBuilder: (context, index) {
-        return _FolderNode(entity: roots[index], cubit: cubit);
+        return _FolderNode(
+          entity: roots[index],
+          cubit: cubit,
+          toEntity: _toEntity,
+        );
       },
     );
   }
 }
 
+NomenclatureEntity _toEntity(NomenclatureObx k) => NomenclatureEntity(
+  guid: k.guid,
+  name: k.name,
+  isFolder: k.isFolder,
+  parentGuid: k.parentGuid,
+  description: '',
+  createdAt: k.createdAtMs > 0
+      ? DateTime.fromMillisecondsSinceEpoch(k.createdAtMs)
+      : DateTime.now(),
+  price: k.price,
+  article: k.article,
+  unitName: k.unitName,
+  unitGuid: k.unitGuid,
+  id: k.id,
+  barcodes: _getBarcodes(k.guid),
+  prices: _getPrices(k.guid),
+);
+List<BarcodeEntity> _getBarcodes(String nomGuid) {
+  final obx = sl<ObjectBox>();
+  final qb = obx.barcodeBox.query(BarcodeObx_.nomGuid.equals(nomGuid)).build();
+  try {
+    return qb
+        .find()
+        .map((b) => BarcodeEntity(nomGuid: b.nomGuid, barcode: b.barcode))
+        .toList();
+  } finally {
+    qb.close();
+  }
+}
+
+List<PriceEntity> _getPrices(String nomGuid) {
+  final obx = sl<ObjectBox>();
+  final qp = obx.priceBox.query(PriceObx_.nomGuid.equals(nomGuid)).build();
+  try {
+    final list = qp.find();
+    list.sort((a, b) => (a.createdAtMs ?? 0).compareTo(b.createdAtMs ?? 0));
+    return list
+        .map(
+          (p) => PriceEntity(
+            nomGuid: p.nomGuid,
+            price: p.price,
+            createdAt: p.createdAtMs != null
+                ? DateTime.fromMillisecondsSinceEpoch(p.createdAtMs!)
+                : null,
+          ),
+        )
+        .toList();
+  } finally {
+    qp.close();
+  }
+}
+
 class _FolderNode extends StatelessWidget {
-  const _FolderNode({required this.entity, required this.cubit});
-  final NomenclatureEntity entity;
+  const _FolderNode({
+    required this.entity,
+    required this.cubit,
+    required this.toEntity,
+  });
+  final NomenclatureObx entity;
   final NomenclatureCubit cubit;
+  final NomenclatureEntity Function(NomenclatureObx) toEntity;
 
   @override
   Widget build(BuildContext context) {
-    final children = cubit.getChildren(entity.guid);
     if (entity.isFolder) {
       return _LazyExpansionTile(
         title: Text(entity.name),
         leading: const Icon(Icons.folder),
-        itemCount: children.length,
-        itemBuilder: (context, index) {
-          final child = children[index];
-          if (child.isFolder) {
-            return _FolderNode(entity: child, cubit: cubit);
-          }
-          return NomenclatureItemWidget(nomenclature: child);
+        loadChildren: () => cubit.loadChildren(entity.guid),
+        itemBuilder: (context, child) {
+          return child.isFolder
+              ? _FolderNode(cubit: cubit, entity: child, toEntity: toEntity)
+              : NomenclatureItemWidget(nomenclature: toEntity(child));
         },
       );
     }
-    return NomenclatureItemWidget(nomenclature: entity);
+    return NomenclatureItemWidget(nomenclature: toEntity(entity));
   }
 }
 
@@ -657,13 +679,13 @@ class _LazyExpansionTile extends StatefulWidget {
   const _LazyExpansionTile({
     required this.title,
     required this.leading,
-    required this.itemCount,
+    required this.loadChildren,
     required this.itemBuilder,
   });
   final Widget title;
   final Widget leading;
-  final int itemCount;
-  final Widget Function(BuildContext, int) itemBuilder;
+  final Future<List<NomenclatureObx>> Function() loadChildren;
+  final Widget Function(BuildContext, NomenclatureObx) itemBuilder;
 
   @override
   State<_LazyExpansionTile> createState() => _LazyExpansionTileState();
@@ -671,41 +693,37 @@ class _LazyExpansionTile extends StatefulWidget {
 
 class _LazyExpansionTileState extends State<_LazyExpansionTile> {
   bool _expanded = false;
-  final ScrollController _innerController = ScrollController();
-
-  @override
-  void dispose() {
-    _innerController.dispose();
-    super.dispose();
-  }
+  Future<List<NomenclatureObx>>? _future;
 
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
       leading: widget.leading,
       title: widget.title,
-      onExpansionChanged: (v) => setState(() => _expanded = v),
+      onExpansionChanged: (v) {
+        setState(() => _expanded = v);
+        if (v && _future == null) {
+          _future = widget.loadChildren();
+        }
+      },
       children: _expanded
-          ? <Widget>[
-              Builder(
-                builder: (context) {
-                  final double screenHeight = MediaQuery.of(
-                    context,
-                  ).size.height;
-                  const double perItemHeight = 56.0; // approx tile height
-                  const double minHeight =
-                      perItemHeight * 3; // show at least ~3
-                  final double estimated = widget.itemCount * perItemHeight;
-                  final double maxHeight =
-                      screenHeight * 0.6; // cap at 60% screen
-                  final double height = estimated.clamp(minHeight, maxHeight);
-
+          ? [
+              FutureBuilder<List<NomenclatureObx>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+                  final list = snapshot.data!;
                   return ListView.builder(
-                    controller: _innerController,
                     shrinkWrap: true,
                     physics: const ClampingScrollPhysics(),
-                    itemCount: widget.itemCount,
-                    itemBuilder: widget.itemBuilder,
+                    itemCount: list.length,
+                    itemBuilder: (context, index) =>
+                        widget.itemBuilder(context, list[index]),
                   );
                 },
               ),
@@ -714,3 +732,43 @@ class _LazyExpansionTileState extends State<_LazyExpansionTile> {
     );
   }
 }
+
+class _SearchSwitch extends StatelessWidget {
+  const _SearchSwitch({
+    required this.byName,
+    required this.byBarcode,
+    required this.byArticle,
+    required this.onChanged,
+  });
+  final bool byName;
+  final bool byBarcode;
+  final bool byArticle;
+  final ValueChanged<_SearchMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final common.SearchParam current = byBarcode
+        ? common.SearchParam.barcode
+        : byArticle
+        ? common.SearchParam.article
+        : common.SearchParam.name;
+    return common.SearchModeSwitch(
+      value: current,
+      onChanged: (p) {
+        switch (p) {
+          case common.SearchParam.name:
+            onChanged(_SearchMode.name);
+            break;
+          case common.SearchParam.barcode:
+            onChanged(_SearchMode.barcode);
+            break;
+          case common.SearchParam.article:
+            onChanged(_SearchMode.article);
+            break;
+        }
+      },
+    );
+  }
+}
+
+enum _SearchMode { name, barcode, article }

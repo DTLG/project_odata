@@ -15,6 +15,7 @@ import '../../features/agents/data/datasources/remote/supabase_agents_datasource
 import '../../features/agents/data/repositories/agents_repository_impl.dart';
 import '../../features/agents/presentation/pages/agent_selection_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/injection/injection_container.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -31,6 +32,7 @@ class AppRouter {
   static const String customerOrderLocal = '/customer-order-local';
   static const String customerOrderLocalList = '/customer-order-local-list';
   static const String customerOrdersList = '/customer-orders';
+  static const String agentSelection = '/agent-selection';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     final routeName = settings.name;
@@ -73,15 +75,8 @@ class AppRouter {
       return MaterialPageRoute(builder: (_) => const CustomerOrderPage());
     } else if (routeName == customerOrderLocalList) {
       return MaterialPageRoute(builder: (_) => const CustomerOrdersListPage());
-    } else if (routeName == 'agentSelection') {
-      final client = Supabase.instance.client;
-      final repo = AgentsRepositoryImpl(
-        local: SqliteAgentsDatasourceImpl(),
-        remote: SupabaseAgentsDatasourceImpl(client),
-      );
-      return MaterialPageRoute(
-        builder: (_) => AgentSelectionPage(repository: repo),
-      );
+    } else if (routeName == agentSelection) {
+      return MaterialPageRoute(builder: (_) => const AgentSelectionPage());
     } else {
       return MaterialPageRoute(
         builder: (_) => Scaffold(

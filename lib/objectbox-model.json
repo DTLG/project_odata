@@ -1,0 +1,277 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:5898118630066854859",
+      "lastPropertyId": "6:7665778656174601592",
+      "name": "AgentObx",
+      "properties": [
+        {
+          "id": "1:4704428088401841038",
+          "name": "obxId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:55309919668388127",
+          "name": "guid",
+          "indexId": "1:9044729206033351486",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:9042861342207890580",
+          "name": "name",
+          "indexId": "2:3528394521640951301",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "4:5237705026597490010",
+          "name": "parentGuid",
+          "indexId": "3:7835339345921462655",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "5:7025530956792787158",
+          "name": "isFolder",
+          "type": 1
+        },
+        {
+          "id": "6:7665778656174601592",
+          "name": "password",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:8763961766103358067",
+      "lastPropertyId": "3:7181883927762615919",
+      "name": "BarcodeObx",
+      "properties": [
+        {
+          "id": "1:2747850063299170559",
+          "name": "obxId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:8667847544992394923",
+          "name": "nomGuid",
+          "indexId": "4:3914527378597271359",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:7181883927762615919",
+          "name": "barcode",
+          "indexId": "5:6044711527750669641",
+          "type": 9,
+          "flags": 2048
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "3:4284781867969496941",
+      "lastPropertyId": "6:3482542380234335907",
+      "name": "KontragentObx",
+      "properties": [
+        {
+          "id": "1:4516984577973605844",
+          "name": "obxId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3972222023123772771",
+          "name": "guid",
+          "indexId": "6:7754426359316133107",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:1404109737866777868",
+          "name": "name",
+          "indexId": "7:5951743703731631314",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "4:5570160614082803962",
+          "name": "parentGuid",
+          "indexId": "8:6411133136916522047",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "5:7482667671921039159",
+          "name": "isFolder",
+          "type": 1
+        },
+        {
+          "id": "6:3482542380234335907",
+          "name": "edrpou",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "4:536119716697023923",
+      "lastPropertyId": "12:4408787451333387180",
+      "name": "NomenclatureObx",
+      "properties": [
+        {
+          "id": "1:7427406023386492628",
+          "name": "obxId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:1036922700222593615",
+          "name": "guid",
+          "indexId": "9:8463687708553181361",
+          "type": 9,
+          "flags": 2080
+        },
+        {
+          "id": "3:2298803427903020196",
+          "name": "name",
+          "indexId": "10:2605300365745605649",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "4:7952379228449623846",
+          "name": "article",
+          "indexId": "11:7563508736041554628",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "5:4596164492951387564",
+          "name": "parentGuid",
+          "indexId": "12:7936582621768388147",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "6:3946227889482325608",
+          "name": "isFolder",
+          "type": 1
+        },
+        {
+          "id": "7:6266119089310960907",
+          "name": "id",
+          "type": 9
+        },
+        {
+          "id": "8:9032907066856355893",
+          "name": "price",
+          "type": 8
+        },
+        {
+          "id": "9:2172629460557503015",
+          "name": "unitName",
+          "type": 9
+        },
+        {
+          "id": "10:6131508966924211379",
+          "name": "unitGuid",
+          "type": 9
+        },
+        {
+          "id": "11:693481487439846856",
+          "name": "description",
+          "type": 9
+        },
+        {
+          "id": "12:4408787451333387180",
+          "name": "createdAtMs",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "5:487477669029294282",
+      "lastPropertyId": "4:8648620238990712626",
+      "name": "PriceObx",
+      "properties": [
+        {
+          "id": "1:8957816583350619946",
+          "name": "obxId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3992340748794860742",
+          "name": "nomGuid",
+          "indexId": "13:8032944488838013670",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:3249115006018676200",
+          "name": "price",
+          "type": 8
+        },
+        {
+          "id": "4:8648620238990712626",
+          "name": "createdAtMs",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "6:5024853998477648590",
+      "lastPropertyId": "4:1734106670235115181",
+      "name": "TypeOfRepairObx",
+      "properties": [
+        {
+          "id": "1:4070024810800595502",
+          "name": "obxId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:5331034662812321809",
+          "name": "guid",
+          "indexId": "14:6298623785525240009",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:7667178104731533629",
+          "name": "name",
+          "indexId": "15:7774220761926017667",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "4:1734106670235115181",
+          "name": "createdAtMs",
+          "type": 6
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "6:5024853998477648590",
+  "lastIndexId": "15:7774220761926017667",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}

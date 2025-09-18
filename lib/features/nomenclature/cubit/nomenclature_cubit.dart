@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:project_odata/objectbox.dart';
 import '../../../core/usecases/nomenclature/get_local_nomenclature_usecase.dart';
 import '../../../core/usecases/nomenclature/get_nomenclature_count_usecase.dart';
 import '../../../core/usecases/nomenclature/search_nomenclature_by_article_usecase.dart';
@@ -9,9 +10,10 @@ import '../../../core/usecases/usecase.dart';
 import '../../../core/injection/injection_container.dart';
 import '../../../core/repositories/nomenclature_repository.dart';
 import '../../../data/datasources/remote/supabase_nomenclature_datasource.dart';
-import '../../../data/datasources/local/sqflite_nomenclature_datasource.dart';
 import '../../../core/entities/nomenclature_entity.dart';
 import 'nomenclature_state.dart';
+import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../../core/objectbox/objectbox_entities.dart';
 
 /// Cubit для управління станом номенклатури
 /// Дотримується принципу Single Responsibility (SOLID)
@@ -27,6 +29,7 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
 
   // In-memory tree cache
   final Map<String, List<NomenclatureEntity>> _childrenByParentGuid = {};
+  ObjectBox? _obx;
 
   NomenclatureCubit({
     required SyncNomenclatureUseCase syncNomenclatureUseCase,
@@ -49,56 +52,76 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
   Future<void> loadRootTree() async {
     emit(NomenclatureLoading());
 
+    final obx = sl<ObjectBox>();
+    _obx = obx;
+    final roots = obx.getRootNomenclature();
     // load all locally then filter roots
     final countResult = await _getNomenclatureCountUseCase(const NoParams());
     int totalCount = 0;
     countResult.fold((_) {}, (c) => totalCount = c);
-
-    final result = await _getLocalNomenclatureUseCase(const NoParams());
-    result.fold(
-      (failure) {
-        // Allow page to open with empty tree; UI can show failure.message
-        _childrenByParentGuid.clear();
-        emit(
-          NomenclatureTreeLoaded(
-            rootFolders: const <NomenclatureEntity>[],
-            childrenByParentGuid: const <String, List<NomenclatureEntity>>{},
-            totalCount: totalCount,
-          ),
-        );
-      },
-      (all) {
-        // cache children by parent
-        _childrenByParentGuid.clear();
-        for (final e in all) {
-          // Treat empty or missing parent as root
-          final String parent = (e.parentGuid.isEmpty)
-              ? rootGuid
-              : e.parentGuid;
-          final list = _childrenByParentGuid[parent] ??= <NomenclatureEntity>[];
-          list.add(e);
-        }
-        // Roots are folders directly under root
-        final roots =
-            (_childrenByParentGuid[rootGuid] ?? <NomenclatureEntity>[])
-                .where((e) => e.isFolder)
-                .toList();
-        emit(
-          NomenclatureTreeLoaded(
-            rootFolders: roots,
-            childrenByParentGuid: Map<String, List<NomenclatureEntity>>.from(
-              _childrenByParentGuid,
-            ),
-            totalCount: totalCount,
-          ),
-        );
-      },
+    emit(
+      NomenclatureTreeLoaded(
+        rootFolders: roots,
+        childrenByParentGuid: Map<String, List<NomenclatureEntity>>.from(
+          _childrenByParentGuid,
+        ),
+        totalCount: totalCount,
+      ),
     );
+    // load all locally then filter roots
+    // final countResult = await _getNomenclatureCountUseCase(const NoParams());
+    // int totalCount = 0;
+    // countResult.fold((_) {}, (c) => totalCount = c);
+
+    // final result = await _getLocalNomenclatureUseCase(const NoParams());
+    // result.fold(
+    //   (failure) {
+    //     // Allow page to open with empty tree; UI can show failure.message
+    //     _childrenByParentGuid.clear();
+    //     emit(
+    //       NomenclatureTreeLoaded(
+    //         rootFolders: const <NomenclatureEntity>[],
+    //         childrenByParentGuid: const <String, List<NomenclatureEntity>>{},
+    //         totalCount: totalCount,
+    //       ),
+    //     );
+    //   },
+    //   (all) {
+    //     // cache children by parent
+    //     _childrenByParentGuid.clear();
+    //     for (final e in all) {
+    //       // Treat empty or missing parent as root
+    //       final String parent = (e.parentGuid.isEmpty)
+    //           ? rootGuid
+    //           : e.parentGuid;
+    //       final list = _childrenByParentGuid[parent] ??= <NomenclatureEntity>[];
+    //       list.add(e);
+    //     }
+    //     // Roots are folders directly under root
+    //     final roots =
+    //         (_childrenByParentGuid[rootGuid] ?? <NomenclatureEntity>[])
+    //             .where((e) => e.isFolder)
+    //             .toList();
+    //     emit(
+    //       NomenclatureTreeLoaded(
+    //         rootFolders: roots,
+    //         childrenByParentGuid: Map<String, List<NomenclatureEntity>>.from(
+    //           _childrenByParentGuid,
+    //         ),
+    //         totalCount: totalCount,
+    //       ),
+    //     );
+    //   },
+    // );
   }
 
   /// Get children for a given parent from cache (loadRootTree must be called first)
-  List<NomenclatureEntity> getChildren(String parentGuid) {
-    return _childrenByParentGuid[parentGuid] ?? const <NomenclatureEntity>[];
+  // List<NomenclatureEntity> getChildren(String parentGuid) {
+  //   return _childrenByParentGuid[parentGuid] ?? const <NomenclatureEntity>[];
+  // }
+  Future<List<NomenclatureObx>> loadChildren(String parentGuid) async {
+    if (_obx == null) return const [];
+    return _obx!.getChildrenNomenclature(parentGuid);
   }
 
   /// Синхронізація номенклатури з сервером (з прогресом)
@@ -107,7 +130,7 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
       const NomenclatureLoadingWithProgress(
         message: 'Починаємо синхронізацію...',
         current: 0,
-        total: 46000,
+        total: 50500,
       ),
     );
 
@@ -333,7 +356,7 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
     emit(NomenclatureLoading());
 
     try {
-      final localDatasource = sl<SqliteNomenclatureDatasource>();
+      final localDatasource = sl<NomenclatureLocalDatasource>();
       final debugResult = await localDatasource.debugDatabase();
 
       emit(NomenclatureTestSuccess(debugResult));
@@ -347,7 +370,7 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
     emit(NomenclatureLoading());
 
     try {
-      final localDatasource = sl<SqliteNomenclatureDatasource>();
+      final localDatasource = sl<NomenclatureLocalDatasource>();
       await localDatasource.recreateDatabase();
 
       emit(

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config/supabase_config.dart';
 import '../../../features/agents/data/datasources/local/sqlite_agents_datasource.dart';
 import '../../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
+import '../../../features/agents/data/datasources/local/objectbox_agents_datasource.dart';
 import '../cubit/settings_cubit.dart';
 import '../models/price_type.dart';
 import '../../../core/theme/theme_controller.dart';
@@ -738,16 +739,7 @@ class _AgentsCardState extends State<_AgentsCard> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => AgentSelectionPage(
-                    repository: AgentsRepositoryImpl(
-                      local: SqliteAgentsDatasourceImpl(),
-                      remote: SupabaseAgentsDatasourceImpl(
-                        Supabase.instance.client,
-                      ),
-                    ),
-                  ),
-                ),
+                MaterialPageRoute(builder: (context) => AgentSelectionPage()),
               ).then((value) {
                 context.read<SettingsCubit>().getAgent();
               });

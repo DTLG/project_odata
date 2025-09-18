@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../data/datasources/local/sqflite_nomenclature_datasource.dart';
+import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
 import '../../../../core/injection/injection_container.dart';
 
 class RepairConfirmationTab extends StatelessWidget {
@@ -148,7 +148,7 @@ class _NomenclatureNameLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (guid.isEmpty) return Text('-', style: valueStyle);
-    final ds = sl<SqliteNomenclatureDatasource>();
+    final ds = sl<NomenclatureLocalDatasource>();
     return FutureBuilder(
       future: ds.getNomenclatureByGuid(guid),
       builder: (context, snapshot) {

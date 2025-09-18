@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:barcode_scan2/barcode_scan2.dart';
-import '../../../../data/datasources/local/sqflite_nomenclature_datasource.dart';
 import '../../../../core/injection/injection_container.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../common/widgets/search_mode_switch.dart' as common;
+import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
 
 class RepairProductSelectionTab extends StatefulWidget {
   final String? initialGuid;
@@ -25,7 +24,7 @@ class RepairProductSelectionTab extends StatefulWidget {
 class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _barcodeController = TextEditingController();
-  late final SqliteNomenclatureDatasource _local;
+  late final NomenclatureLocalDatasource _local;
 
   List<dynamic> _all = const [];
   List<dynamic> _shown = const [];
@@ -42,7 +41,7 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
   @override
   void initState() {
     super.initState();
-    _local = sl<SqliteNomenclatureDatasource>();
+    _local = sl<NomenclatureLocalDatasource>();
     _selectedGuid = widget.initialGuid;
     if (widget.prefetched != null && widget.prefetched!.isNotEmpty) {
       _all = widget.prefetched!;

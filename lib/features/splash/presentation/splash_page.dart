@@ -6,13 +6,16 @@ import '../../../../features/nomenclature/cubit/nomenclature_state.dart';
 import '../../../../features/kontragenty/presentation/cubit/kontragent_cubit.dart';
 import '../../../../common/shared_preferiences/sp_func.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../features/agents/data/datasources/local/sqlite_agents_datasource.dart';
+// import '../../../../features/agents/data/datasources/local/sqlite_agents_datasource.dart';
 import '../../../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
 import '../../../../features/agents/data/repositories/agents_repository_impl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../features/repair_request/data/datasources/local/sqlite_types_of_repair_datasource.dart';
+// import '../../../../features/repair_request/data/datasources/local/sqlite_types_of_repair_datasource.dart';
 import '../../../../features/repair_request/data/datasources/remote/supabase_types_of_repair_datasource.dart';
-import '../../../../features/repair_request/data/repositories/types_of_repair_repository.dart';
+import 'package:project_odata/objectbox.dart';
+import '../../../core/objectbox/objectbox_entities.dart';
+import '../../../../features/agents/data/datasources/local/objectbox_agents_datasource.dart';
+import '../../../../core/config/supabase_config.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -48,6 +51,11 @@ class _SplashPageState extends State<SplashPage> {
           return;
         }
         await setSchema(schema);
+        // also update in-memory config so .schema(SupabaseConfig.schema) uses new value immediately
+        await SupabaseConfig.saveToPrefs(newSchema: schema);
+      } else {
+        // ensure in-memory value matches persisted one on first run
+        await SupabaseConfig.saveToPrefs(newSchema: schema);
       }
 
       // Use existing cubits/usecases via DI
@@ -70,17 +78,22 @@ class _SplashPageState extends State<SplashPage> {
         final k = kontrCubit.state as KontragentLoaded;
         needKontrSync = k.kontragenty.isEmpty;
       }
-      // Check agents count directly from local DB
-      final agentsLocal = SqliteAgentsDatasourceImpl();
-      final agentsCount = await agentsLocal.getAgentsCount();
-      final bool needAgentsSync = agentsCount == 0;
+      // ObjectBox counts
+      final store = sl<ObjectBox>().getStore();
+      final agentBox = store.box<AgentObx>();
+      final typesBox = store.box<TypeOfRepairObx>();
+      final nomenBox = store.box<NomenclatureObx>();
+      final kontrBox = store.box<KontragentObx>();
 
-      if (needNomenSync) {
+      final needAgentsSync = agentBox.count() == 0;
+
+      if (needNomenSync || nomenBox.count() == 0) {
         setState(() => _message = 'Синхронізація номенклатури...');
         await nomenCubit.syncNomenclature();
+        // After sync via existing flows, copy to ObjectBox if needed (optional)
       }
 
-      if (needKontrSync) {
+      if (needKontrSync || kontrBox.count() == 0) {
         setState(() => _message = 'Синхронізація контрагентів...');
         await kontrCubit.syncKontragenty();
       }
@@ -88,23 +101,30 @@ class _SplashPageState extends State<SplashPage> {
         setState(() => _message = 'Синхронізація агентів...');
         final client = Supabase.instance.client;
         final agentsRepo = AgentsRepositoryImpl(
-          local: agentsLocal,
+          local:
+              ObjectBoxAgentsDatasourceImpl(), // switched to ObjectBox (handled below)
           remote: SupabaseAgentsDatasourceImpl(client),
         );
         await agentsRepo.syncAgents();
       }
 
       // Sync types_of_repair if empty
-      final typesLocal = SqliteTypesOfRepairDatasource();
-      final typesCount = await typesLocal.getCount();
-      if (typesCount == 0) {
+      if (typesBox.count() == 0) {
         setState(() => _message = 'Синхронізація типів ремонту...');
         final client = Supabase.instance.client;
-        final typesRepo = TypesOfRepairRepository(
-          local: typesLocal,
-          remote: SupabaseTypesOfRepairDatasource(client),
+        final remote = SupabaseTypesOfRepairDatasource(client);
+        final list = await remote.fetchAll();
+        typesBox.putMany(
+          list
+              .map(
+                (t) => TypeOfRepairObx(
+                  guid: t.guid,
+                  name: t.name,
+                  createdAtMs: t.createdAt?.millisecondsSinceEpoch,
+                ),
+              )
+              .toList(),
         );
-        await typesRepo.sync();
       }
 
       if (!mounted) return;
@@ -114,7 +134,7 @@ class _SplashPageState extends State<SplashPage> {
       final selectedAgentGuid = prefs.getString('agent_guid') ?? '';
       if (selectedAgentGuid.isEmpty) {
         setState(() => _message = 'Оберіть агента...');
-        await Navigator.of(context).pushNamed('agentSelection');
+        await Navigator.of(context).pushNamed(AppRouter.agentSelection);
       }
 
       if (!mounted) return;

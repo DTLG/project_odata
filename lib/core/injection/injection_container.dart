@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/datasources/local/sqflite_nomenclature_datasource.dart';
+import '../../data/datasources/local/objectbox_nomenclature_datasource.dart';
 import '../../data/datasources/remote/supabase_nomenclature_datasource.dart';
 import '../../data/repositories/nomenclature_repository_impl.dart';
 import '../repositories/nomenclature_repository.dart';
@@ -19,10 +20,11 @@ import '../../features/customer_order/data/datasources/local/orders_local_data_s
 import '../../features/customer_order/data/repositories/orders_repository_impl.dart';
 import '../../features/customer_order/domain/repositories/orders_repository.dart';
 import '../../features/customer_order/domain/usecases/save_local_order_usecase.dart';
+import '../../features/agents/data/datasources/local/sqlite_agents_datasource.dart';
 import '../../features/kontragenty/data/datasources/kontragent_remote_data_source.dart';
 import '../../features/kontragenty/data/datasources/kontragent_local_data_source.dart';
 import '../../features/kontragenty/data/datasources/remote/supabase_kontragent_datasource.dart';
-import '../../features/kontragenty/data/datasources/local/sqflite_kontragent_datasource.dart';
+import '../../features/kontragenty/data/datasources/local/object_box_kontragent_datasource.dart';
 import '../../features/kontragenty/data/repositories/kontragent_repository_impl.dart';
 import '../../features/kontragenty/domain/repositories/kontragent_repository.dart';
 import '../../features/kontragenty/domain/usecases/sync_kontragenty_usecase.dart';
@@ -34,6 +36,11 @@ import '../../features/kontragenty/domain/usecases/get_children_usecase.dart';
 import '../../features/kontragenty/domain/usecases/get_kontragenty_count_usecase.dart';
 import '../../features/kontragenty/domain/usecases/clear_local_data_usecase.dart';
 import '../../features/kontragenty/presentation/cubit/kontragent_cubit.dart';
+import 'package:project_odata/objectbox.dart';
+import '../../features/agents/data/datasources/local/objectbox_agents_datasource.dart';
+import '../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
+import '../../features/agents/data/repositories/agents_repository_impl.dart';
+import '../../data/datasources/local/nomenclature_local_datasource.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -74,6 +81,17 @@ Future<void> _initExternalDependencies() async {
   await SqliteHelper.initialize();
 
   print('✅ SQLite готовий до роботи');
+
+  // Ініціалізуємо ObjectBox store (one-time)
+  try {
+    final obx = await ObjectBox.create();
+    if (!sl.isRegistered<ObjectBox>()) {
+      sl.registerSingleton<ObjectBox>(obx);
+    }
+    print('✅ ObjectBox готовий до роботи (singleton)');
+  } catch (e) {
+    print('❌ ObjectBox init failed: $e');
+  }
 }
 
 /// Ініціалізація джерел даних
@@ -82,8 +100,8 @@ void _initDataSources() {
   sl.registerLazySingleton<SupabaseNomenclatureDatasource>(
     () => SupabaseNomenclatureDatasourceImpl(sl()),
   );
-  sl.registerLazySingleton<SqliteNomenclatureDatasource>(
-    () => SqliteNomenclatureDatasourceImpl(),
+  sl.registerLazySingleton<NomenclatureLocalDatasource>(
+    () => ObjectboxNomenclatureDatasource(),
   );
 
   // Kontragent data sources
@@ -91,13 +109,25 @@ void _initDataSources() {
     () => SupabaseKontragentDatasourceImpl(sl()),
   );
   sl.registerLazySingleton<KontragentLocalDataSource>(
-    () => SqliteKontragentDatasourceImpl(),
+    () => ObjectBoxKontragentDatasourceImpl(),
+    // () => SqliteKontragentDatasourceImpl(),
   );
 
   // Orders local datasource
   sl.registerLazySingleton<OrdersLocalDataSource>(
     () => OrdersLocalDataSourceImpl(),
   );
+
+  // Agents local datasource
+  sl.registerLazySingleton<AgentsLocalDataSource>(
+    () => ObjectBoxAgentsDatasourceImpl(),
+    // () => SqliteAgentsDatasourceImpl(),
+  );
+
+  // TODO: Types of repair local datasource
+  // sl.registerLazySingleton<TypesOfRepairLocalDataSource>(
+  //   () => ObjectBoxTypesOfRepairDatasourceImpl(),
+  // );
 }
 
 /// Ініціалізація репозиторіїв
@@ -120,8 +150,16 @@ void _initRepositories() {
   sl.registerLazySingleton<OrdersRepository>(
     () => OrdersRepositoryImpl(
       sl<OrdersLocalDataSource>(),
-      sl<SqliteNomenclatureDatasource>(),
+      sl<NomenclatureLocalDatasource>(),
       sl<KontragentLocalDataSource>(),
+    ),
+  );
+
+  // Agents repository
+  sl.registerLazySingleton<AgentsRepository>(
+    () => AgentsRepositoryImpl(
+      local: sl<AgentsLocalDataSource>(),
+      remote: SupabaseAgentsDatasourceImpl(sl()),
     ),
   );
 }

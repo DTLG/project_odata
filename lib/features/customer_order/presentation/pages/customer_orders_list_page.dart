@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// import removed: Bloc not used here
+import '../../presentation/cubit/customer_order_cubit.dart';
 import '../../../../core/injection/injection_container.dart';
 import '../../domain/entities/customer_order_entity.dart';
 import '../../domain/repositories/orders_repository.dart';
@@ -20,12 +20,18 @@ class _CustomerOrdersListPageState extends State<CustomerOrdersListPage> {
   List<CustomerOrderEntity> _orders = const [];
   final Map<String, String> _customerNameByGuid = {};
   bool _loading = true;
+  CustomerOrderCubit? _sharedCubit;
 
   @override
   void initState() {
     super.initState();
     _repo = sl<OrdersRepository>();
     _kontrLocal = sl<KontragentLocalDataSource>();
+    // Create a shared cubit and start background initialization
+    _sharedCubit = sl<CustomerOrderCubit>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sharedCubit!.initialize();
+    });
     _load();
   }
 
@@ -99,6 +105,7 @@ class _CustomerOrdersListPageState extends State<CustomerOrdersListPage> {
                           builder: (_) => CustomerOrderPage(
                             initialOrder: selected,
                             initialCustomer: customer,
+                            cubit: _sharedCubit,
                           ),
                         ),
                       );
@@ -110,9 +117,11 @@ class _CustomerOrdersListPageState extends State<CustomerOrdersListPage> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          await Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const CustomerOrderPage()));
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => CustomerOrderPage(cubit: _sharedCubit),
+            ),
+          );
           await _load();
         },
         icon: const Icon(Icons.add),

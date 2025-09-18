@@ -1,5 +1,6 @@
 import '../models/agent_model.dart';
 import '../datasources/local/sqlite_agents_datasource.dart';
+import '../datasources/local/objectbox_agents_datasource.dart';
 import '../datasources/remote/supabase_agents_datasource.dart';
 
 abstract class AgentsRepository {

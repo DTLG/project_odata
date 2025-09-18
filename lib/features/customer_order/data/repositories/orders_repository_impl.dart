@@ -1,13 +1,13 @@
 import '../../domain/entities/customer_order_entity.dart';
 import '../../domain/repositories/orders_repository.dart';
-import '../../../../data/datasources/local/sqflite_nomenclature_datasource.dart';
 import '../../../kontragenty/data/datasources/kontragent_local_data_source.dart';
 import '../datasources/local/orders_local_data_source.dart';
 import '../../data/models/customer_order_model.dart';
+import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
 
 class OrdersRepositoryImpl implements OrdersRepository {
   final OrdersLocalDataSource local;
-  final SqliteNomenclatureDatasource nomenLocal;
+  final NomenclatureLocalDatasource nomenLocal;
   final KontragentLocalDataSource kontrLocal;
   OrdersRepositoryImpl(this.local, this.nomenLocal, this.kontrLocal);
 

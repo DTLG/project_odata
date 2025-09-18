@@ -54,7 +54,7 @@ class KontragentCubit extends Cubit<KontragentState> {
         print(
           '✅ KontragentCubit: Синхронізація завершена, отримано ${kontragenty.length} записів',
         );
-        _buildHierarchy(kontragenty);
+        // _buildHierarchy(kontragenty);
         emit(KontragentLoaded(kontragenty));
       },
     );
@@ -85,7 +85,7 @@ class KontragentCubit extends Cubit<KontragentState> {
         print('      - parentGuid: ${kontragent.parentGuid}');
       }
 
-      _buildHierarchy(kontragenty);
+      // _buildHierarchy(kontragenty);
       emit(KontragentLoaded(kontragenty));
     });
   }

@@ -1,5 +1,8 @@
 import 'package:equatable/equatable.dart';
 import '../../../core/entities/nomenclature_entity.dart';
+import 'package:project_odata/objectbox.dart';
+
+import '../../../core/objectbox/objectbox_entities.dart';
 
 /// Стани для Nomenclature Cubit
 abstract class NomenclatureState extends Equatable {
@@ -47,7 +50,7 @@ class NomenclatureLoaded extends NomenclatureState {
 
 /// Стан ієрархічного завантаження (дерево)
 class NomenclatureTreeLoaded extends NomenclatureState {
-  final List<NomenclatureEntity> rootFolders;
+  final List<NomenclatureObx> rootFolders;
   final Map<String, List<NomenclatureEntity>> childrenByParentGuid;
   final int totalCount;
 

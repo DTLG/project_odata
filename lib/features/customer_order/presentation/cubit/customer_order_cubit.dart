@@ -47,35 +47,98 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
 
     emit(CustomerOrderLoading());
 
-    try {
-      // Load customers and nomenclature in parallel
-      final customersResult = await getAvailableCustomersUseCase(NoParams());
-      final nomenclatureResult = await getAvailableNomenclatureUseCase(
-        NoParams(),
-      );
+    List<KontragentEntity>? loadedCustomers;
+    List<NomenclatureEntity>? loadedNomenclature;
+    int failures = 0;
+    String? lastErrorMessage;
 
-      customersResult.fold(
-        (failure) => emit(CustomerOrderError(failure.message)),
-        (customers) {
-          _cachedCustomers = customers;
-          nomenclatureResult.fold(
-            (failure) => emit(CustomerOrderError(failure.message)),
-            (nomenclature) {
-              _cachedNomenclature = nomenclature;
-              _isInitialized = true;
-              emit(
-                CustomerOrderInitialized(
-                  customers: customers,
-                  nomenclature: nomenclature,
-                ),
-              );
+    void maybeEmitFinal() {
+      if (!_isInitialized &&
+          loadedCustomers != null &&
+          loadedNomenclature != null) {
+        _cachedCustomers = loadedCustomers;
+        _cachedNomenclature = loadedNomenclature;
+        _isInitialized = true;
+        emit(
+          CustomerOrderInitialized(
+            customers: loadedCustomers!,
+            nomenclature: loadedNomenclature!,
+          ),
+        );
+      }
+    }
+
+    // Load customers
+    getAvailableCustomersUseCase(NoParams())
+        .then((result) {
+          result.fold(
+            (failure) {
+              failures += 1;
+              lastErrorMessage = failure.message;
+              if (failures >= 2) {
+                emit(
+                  CustomerOrderError(
+                    lastErrorMessage ?? 'Помилка ініціалізації',
+                  ),
+                );
+              }
+            },
+            (customers) {
+              loadedCustomers = customers;
+              _cachedCustomers = customers;
+              // Emit partial update if nomenclature not loaded yet
+              if (loadedNomenclature == null) {
+                emit(CustomersLoaded(customers));
+              }
+              maybeEmitFinal();
             },
           );
-        },
-      );
-    } catch (e) {
-      emit(CustomerOrderError('Помилка ініціалізації: ${e.toString()}'));
-    }
+        })
+        .catchError((e) {
+          failures += 1;
+          lastErrorMessage = e.toString();
+          if (failures >= 2) {
+            emit(
+              CustomerOrderError(lastErrorMessage ?? 'Помилка ініціалізації'),
+            );
+          }
+        });
+
+    // Load nomenclature
+    getAvailableNomenclatureUseCase(NoParams())
+        .then((result) {
+          result.fold(
+            (failure) {
+              failures += 1;
+              lastErrorMessage = failure.message;
+              if (failures >= 2) {
+                emit(
+                  CustomerOrderError(
+                    lastErrorMessage ?? 'Помилка ініціалізації',
+                  ),
+                );
+              }
+            },
+            (nomenclature) {
+              loadedNomenclature = nomenclature;
+              _cachedNomenclature = nomenclature;
+              // Emit partial update if customers not loaded yet
+              if (loadedCustomers == null) {
+                emit(NomenclatureLoaded(nomenclature));
+              }
+              maybeEmitFinal();
+            },
+          );
+        })
+        .catchError((e) {
+          failures += 1;
+          lastErrorMessage = e.toString();
+          if (failures >= 2) {
+            emit(
+              CustomerOrderError(lastErrorMessage ?? 'Помилка ініціалізації'),
+            );
+          }
+        });
   }
 
   /// Load an existing order into the cubit (e.g., opening a saved draft)

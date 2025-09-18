@@ -3,12 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/repositories/agents_repository_impl.dart';
+import '../../../../core/injection/injection_container.dart';
 import '../cubit/agents_cubit.dart';
 import '../../data/models/agent_model.dart';
 
 class AgentSelectionPage extends StatefulWidget {
-  final AgentsRepository repository;
-  const AgentSelectionPage({super.key, required this.repository});
+  const AgentSelectionPage({super.key});
 
   @override
   State<AgentSelectionPage> createState() => _AgentSelectionPageState();
@@ -24,8 +24,9 @@ class _AgentSelectionPageState extends State<AgentSelectionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final repo = sl<AgentsRepository>();
     return BlocProvider(
-      create: (_) => AgentsCubit(widget.repository)..loadRoot(),
+      create: (_) => AgentsCubit(repo)..loadRoot(),
       child: Scaffold(
         appBar: AppBar(title: const Text('Вибір агента')),
         body: _AgentSelectionBody(onPick: _saveAgent),
