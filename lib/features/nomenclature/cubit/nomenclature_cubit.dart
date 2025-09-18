@@ -10,10 +10,10 @@ import '../../../core/usecases/usecase.dart';
 import '../../../core/injection/injection_container.dart';
 import '../../../core/repositories/nomenclature_repository.dart';
 import '../../../data/datasources/remote/supabase_nomenclature_datasource.dart';
-import '../../../core/entities/nomenclature_entity.dart';
 import 'nomenclature_state.dart';
 import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
 import '../../../core/objectbox/objectbox_entities.dart';
+import '../../../core/entities/nomenclature_entity.dart';
 
 /// Cubit для управління станом номенклатури
 /// Дотримується принципу Single Responsibility (SOLID)
@@ -30,6 +30,11 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
   // In-memory tree cache
   final Map<String, List<NomenclatureEntity>> _childrenByParentGuid = {};
   ObjectBox? _obx;
+
+  // Fast in-memory caches
+  final Map<String, List<BarcodeEntity>> _barcodesByNomGuid = {};
+  final Map<String, List<PriceEntity>> _pricesByNomGuid = {};
+  final Map<String, List<NomenclatureObx>> _childrenByParentGuidObx = {};
 
   NomenclatureCubit({
     required SyncNomenclatureUseCase syncNomenclatureUseCase,
@@ -68,6 +73,23 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
         totalCount: totalCount,
       ),
     );
+    print(
+      '🎯 NomenclatureCubit: Завантажено ${roots.length} номенклатури з локального сховища',
+    );
+
+    // Виводимо перші три елементи для діагностики
+    print('🔍 Перші три контрагенти в Cubit:');
+    for (int i = 0; i < roots.length && i < 3; i++) {
+      final kontragent = roots[i];
+      print(
+        '  [${i + 1}] ${kontragent.isFolder ? "📁" : "👤"} ${kontragent.name}',
+      );
+      print('      - GUID: ${kontragent.guid}');
+      print('      - isFolder: ${kontragent.isFolder}');
+      print('      - name: ${kontragent.name}');
+      print('      - nameLower: ${kontragent.nameLower}');
+      print('      - parentGuid: ${kontragent.parentGuid}');
+    }
     // load all locally then filter roots
     // final countResult = await _getNomenclatureCountUseCase(const NoParams());
     // int totalCount = 0;
@@ -120,9 +142,53 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
   //   return _childrenByParentGuid[parentGuid] ?? const <NomenclatureEntity>[];
   // }
   Future<List<NomenclatureObx>> loadChildren(String parentGuid) async {
+    final cached = _childrenByParentGuidObx[parentGuid];
+    if (cached != null) return cached;
     if (_obx == null) return const [];
-    return _obx!.getChildrenNomenclature(parentGuid);
+    final list = _obx!.getChildrenNomenclature(parentGuid);
+    _childrenByParentGuidObx[parentGuid] = list;
+    return list;
   }
+
+  /// Preload all barcodes and prices into memory (for instant UI mapping)
+  Future<void> preloadBarcodesAndPrices() async {
+    final obx = sl<ObjectBox>();
+    // Barcodes
+    final allBarcodes = obx.barcodeBox.getAll();
+    _barcodesByNomGuid.clear();
+    for (final b in allBarcodes) {
+      final list = _barcodesByNomGuid[b.nomGuid] ??= <BarcodeEntity>[];
+      list.add(BarcodeEntity(nomGuid: b.nomGuid, barcode: b.barcode));
+    }
+    // Prices
+    final allPrices = obx.priceBox.getAll();
+    _pricesByNomGuid.clear();
+    for (final p in allPrices) {
+      final list = _pricesByNomGuid[p.nomGuid] ??= <PriceEntity>[];
+      list.add(
+        PriceEntity(
+          nomGuid: p.nomGuid,
+          price: p.price,
+          createdAt: p.createdAtMs != null
+              ? DateTime.fromMillisecondsSinceEpoch(p.createdAtMs!)
+              : null,
+        ),
+      );
+    }
+    // Sort each price history ascending by createdAt
+    for (final e in _pricesByNomGuid.entries) {
+      e.value.sort(
+        (a, b) => (a.createdAt?.millisecondsSinceEpoch ?? 0).compareTo(
+          b.createdAt?.millisecondsSinceEpoch ?? 0,
+        ),
+      );
+    }
+  }
+
+  List<BarcodeEntity> getBarcodesFor(String nomGuid) =>
+      _barcodesByNomGuid[nomGuid] ?? const <BarcodeEntity>[];
+  List<PriceEntity> getPricesFor(String nomGuid) =>
+      _pricesByNomGuid[nomGuid] ?? const <PriceEntity>[];
 
   /// Синхронізація номенклатури з сервером (з прогресом)
   Future<void> syncNomenclature() async {

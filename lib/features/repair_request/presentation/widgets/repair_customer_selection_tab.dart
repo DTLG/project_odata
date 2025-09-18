@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../../kontragenty/data/datasources/kontragent_local_data_source.dart';
+import 'dart:async';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../kontragenty/data/models/kontragent_model.dart';
+import '../../../kontragenty/presentation/cubit/kontragent_cubit.dart';
 import '../../../../core/injection/injection_container.dart';
+import '../cubit/repair_request_cubit.dart';
 
 class RepairCustomerSelectionTab extends StatefulWidget {
   final void Function(KontragentModel) onSelected;
@@ -20,33 +23,43 @@ class RepairCustomerSelectionTab extends StatefulWidget {
 class _RepairCustomerSelectionTabState
     extends State<RepairCustomerSelectionTab> {
   final TextEditingController _search = TextEditingController();
-  late final KontragentLocalDataSource _kontrLocal;
+  late final KontragentCubit _kontrCubit;
   List<KontragentModel> _items = const [];
   bool _loading = true;
   KontragentModel? _selected;
   bool _isSearch = false;
+  late final StreamSubscription _sub;
 
   @override
   void initState() {
     super.initState();
-    _kontrLocal = sl<KontragentLocalDataSource>();
+    _kontrCubit = sl<KontragentCubit>();
+    // listen to global KontragentCubit for data updates
+    _sub = _kontrCubit.stream.listen((state) async {
+      if (!mounted) return;
+      if (state is KontragentLoaded) {
+        setState(() {
+          _items = state.kontragenty
+              .map((e) => KontragentModel.fromEntity(e))
+              .toList();
+          _loading = false;
+        });
+      }
+    });
     if (widget.prefetched != null && widget.prefetched!.isNotEmpty) {
       _items = widget.prefetched!;
       _loading = false;
       _isSearch = false;
     } else {
-      _load();
+      // trigger load from global cubit
+      _kontrCubit.loadLocalKontragenty();
     }
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final all = await _kontrLocal.getAllKontragenty();
-    setState(() {
-      _items = all;
-      _loading = false;
-      _isSearch = false;
-    });
+    // Prefer global cubit load to keep a single source of truth
+    await _kontrCubit.loadLocalKontragenty();
   }
 
   Future<void> _searchBy(String query) async {
@@ -64,10 +77,9 @@ class _RepairCustomerSelectionTabState
       return;
     }
     setState(() => _loading = true);
-    final byName = await _kontrLocal.searchByName(q);
+    await _kontrCubit.searchByName(q);
+    // results will be applied via listener
     setState(() {
-      _items = byName;
-      _loading = false;
       _isSearch = true;
     });
   }
@@ -75,6 +87,7 @@ class _RepairCustomerSelectionTabState
   @override
   void dispose() {
     _search.dispose();
+    _sub.cancel();
     super.dispose();
   }
 
@@ -131,7 +144,15 @@ class _RepairCustomerSelectionTabState
                   Text('Опис: ${_selected!.description}'),
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: () => widget.onSelected(_selected!),
+                  onPressed: () {
+                    // persist into global RepairRequestCubit if available in context
+                    try {
+                      context.read<RepairRequestCubit>().setCustomer(
+                        _selected!,
+                      );
+                    } catch (_) {}
+                    widget.onSelected(_selected!);
+                  },
                   child: const Text('Обрати клієнта'),
                 ),
               ],

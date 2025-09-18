@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:project_odata/objectbox.dart';
 import '../../../core/injection/injection_container.dart';
 import '../cubit/nomenclature_cubit.dart';
 import '../cubit/nomenclature_state.dart';
@@ -10,7 +9,6 @@ import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
 import '../../common/widgets/search_mode_switch.dart' as common;
 import '../../../core/objectbox/objectbox_entities.dart';
-import 'package:project_odata/objectbox.g.dart';
 
 /// Сторінка номенклатури
 class NomenclaturePage extends StatelessWidget {
@@ -18,8 +16,8 @@ class NomenclaturePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<NomenclatureCubit>(
-      create: (context) => sl<NomenclatureCubit>(), //..loadRootTree(),
+    return BlocProvider.value(
+      value: sl<NomenclatureCubit>(),
       child: const NomenclatureView(),
     );
   }
@@ -33,9 +31,10 @@ class NomenclatureView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<NomenclatureCubit, NomenclatureState>(
       listener: (context, state) {
-        if (state is NomenclatureInitial) {
-          context.read<NomenclatureCubit>().loadRootTree();
-        } else if (state is NomenclatureLoadingWithProgress) {
+        // if (state is NomenclatureInitial) {
+        //   context.read<NomenclatureCubit>().loadRootTree();
+        // } else
+        if (state is NomenclatureLoadingWithProgress) {
           _showProgressDialog(context, state);
         } else if (state is NomenclatureSyncSuccess) {
           if (_progressDialogShown) {
@@ -443,9 +442,9 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
         Expanded(
           child: BlocBuilder<NomenclatureCubit, NomenclatureState>(
             builder: (context, state) {
-              if (state is NomenclatureInitial) {
-                context.read<NomenclatureCubit>().loadRootTree();
-              }
+              // if (state is NomenclatureInitial) {
+              //   context.read<NomenclatureCubit>().emit();
+              // }
               if (state is NomenclatureLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -598,6 +597,7 @@ class _NomenclatureTree extends StatelessWidget {
 NomenclatureEntity _toEntity(NomenclatureObx k) => NomenclatureEntity(
   guid: k.guid,
   name: k.name,
+  nameLower: k.nameLower,
   isFolder: k.isFolder,
   parentGuid: k.parentGuid,
   description: '',
@@ -609,42 +609,18 @@ NomenclatureEntity _toEntity(NomenclatureObx k) => NomenclatureEntity(
   unitName: k.unitName,
   unitGuid: k.unitGuid,
   id: k.id,
-  barcodes: _getBarcodes(k.guid),
-  prices: _getPrices(k.guid),
+  // use in-memory caches from cubit instead of querying ObjectBox in build
+  barcodes: _barcodesFromCache(k.guid),
+  prices: _pricesFromCache(k.guid),
 );
-List<BarcodeEntity> _getBarcodes(String nomGuid) {
-  final obx = sl<ObjectBox>();
-  final qb = obx.barcodeBox.query(BarcodeObx_.nomGuid.equals(nomGuid)).build();
-  try {
-    return qb
-        .find()
-        .map((b) => BarcodeEntity(nomGuid: b.nomGuid, barcode: b.barcode))
-        .toList();
-  } finally {
-    qb.close();
-  }
+List<BarcodeEntity> _barcodesFromCache(String nomGuid) {
+  final cubit = sl<NomenclatureCubit>();
+  return cubit.getBarcodesFor(nomGuid);
 }
 
-List<PriceEntity> _getPrices(String nomGuid) {
-  final obx = sl<ObjectBox>();
-  final qp = obx.priceBox.query(PriceObx_.nomGuid.equals(nomGuid)).build();
-  try {
-    final list = qp.find();
-    list.sort((a, b) => (a.createdAtMs ?? 0).compareTo(b.createdAtMs ?? 0));
-    return list
-        .map(
-          (p) => PriceEntity(
-            nomGuid: p.nomGuid,
-            price: p.price,
-            createdAt: p.createdAtMs != null
-                ? DateTime.fromMillisecondsSinceEpoch(p.createdAtMs!)
-                : null,
-          ),
-        )
-        .toList();
-  } finally {
-    qp.close();
-  }
+List<PriceEntity> _pricesFromCache(String nomGuid) {
+  final cubit = sl<NomenclatureCubit>();
+  return cubit.getPricesFor(nomGuid);
 }
 
 class _FolderNode extends StatelessWidget {

@@ -158,6 +158,7 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
           orElse: () => KontragentEntity(
             guid: order.customerGuid,
             name: '',
+            nameLower: '',
             edrpou: '',
             isFolder: false,
             parentGuid: '',
@@ -410,15 +411,16 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
   /// Load available nomenclature
   Future<void> loadAvailableNomenclature() async {
     // If we already have a customer order state, preserve it
-    if (state is CustomerOrderLoaded) {
-      final currentState = state as CustomerOrderLoaded;
+    if (state is CustomerOrderWithNomenclatureLoaded) {
+      final currentState = state as CustomerOrderWithNomenclatureLoaded;
 
-      if (_cachedNomenclature != null) {
+      if (_cachedNomenclature?.isNotEmpty ?? false) {
         emit(
           CustomerOrderWithNomenclatureLoaded(
             selectedCustomer: currentState.selectedCustomer,
             orderItems: currentState.orderItems,
             totalAmount: currentState.totalAmount,
+            customers: currentState.customers,
             nomenclature: _cachedNomenclature!,
           ),
         );
@@ -436,6 +438,7 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
         emit(
           CustomerOrderWithNomenclatureLoaded(
             selectedCustomer: currentState.selectedCustomer,
+            customers: currentState.customers,
             orderItems: currentState.orderItems,
             totalAmount: currentState.totalAmount,
             nomenclature: nomenclature,
@@ -472,6 +475,7 @@ class CustomerOrderCubit extends Cubit<CustomerOrderState> {
             selectedCustomer: currentState.selectedCustomer,
             orderItems: currentState.orderItems,
             totalAmount: currentState.totalAmount,
+            customers: currentState.customers,
             nomenclature: nomenclature,
           ),
         );

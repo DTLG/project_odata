@@ -10,6 +10,8 @@ import '../../../../core/injection/injection_container.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/customer_order_entity.dart';
 import '../../../kontragenty/domain/entities/kontragent_entity.dart';
+import '../../../nomenclature/cubit/nomenclature_cubit.dart';
+import '../../../kontragenty/presentation/cubit/kontragent_cubit.dart';
 
 /// Main page for customer order with three tabs
 class CustomerOrderPage extends StatelessWidget {
@@ -53,7 +55,6 @@ class _CustomerOrderView extends StatelessWidget {
   final CustomerOrderEntity? initialOrder;
   final KontragentEntity? initialCustomer;
   const _CustomerOrderView({this.initialOrder, this.initialCustomer});
-
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -127,50 +128,72 @@ class _CustomerOrderView extends StatelessWidget {
 
             return TabBarView(
               children: [
-                CustomerSelectionTab(
-                  onCustomerSelected: (customer) {
-                    context.read<CustomerOrderCubit>().setSelectedCustomer(
-                      customer,
-                    );
-                    DefaultTabController.of(context).animateTo(1);
-                  },
+                KeepAliveWrapper(
+                  child: BlocProvider(
+                    create: (_) => sl<KontragentCubit>()
+                      ..loadLocalKontragenty()
+                      ..loadRootFolders(),
+                    child: CustomerSelectionTab(
+                      // prefetched: _prefetchedCustomers,
+                      onCustomerSelected: (customer) {
+                        context.read<CustomerOrderCubit>().setSelectedCustomer(
+                          customer,
+                        );
+                        DefaultTabController.of(context).animateTo(1);
+                      },
+                    ),
+                  ),
                 ),
-                ProductSelectionTab(
-                  onItemAdded: (item) {
-                    context.read<CustomerOrderCubit>().addOrderItem(item);
-                  },
+                KeepAliveWrapper(
+                  child: AbsorbPointer(
+                    absorbing: false,
+                    child: BlocProvider.value(
+                      value: sl<NomenclatureCubit>(),
+                      child: ProductSelectionTab(
+                        onItemAdded: (item) {
+                          context.read<CustomerOrderCubit>().addOrderItem(item);
+                        },
+                      ),
+                    ),
+                  ),
                 ),
-                CartTab(
-                  onItemAdded: (item) {
-                    context.read<CustomerOrderCubit>().addOrderItem(item);
-                  },
-                  onItemRemoved: (itemId) {
-                    context.read<CustomerOrderCubit>().removeOrderItem(itemId);
-                  },
-                  onQuantityChanged: (itemId, quantity) {
-                    context.read<CustomerOrderCubit>().updateItemQuantity(
-                      itemId,
-                      quantity,
-                    );
-                  },
-                ),
-                OrderConfirmationTab(
-                  onCreateOrder: () async {
-                    await context.read<CustomerOrderCubit>().createOrder();
-                    AppRouter.goBack(context);
-                  },
-                  onSaveLocal: () async {
-                    await context.read<CustomerOrderCubit>().saveLocalDraft();
-                    AppRouter.goBack(context);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Замовлення збережено локально'),
-                          backgroundColor: Colors.blue,
-                        ),
+                KeepAliveWrapper(
+                  child: CartTab(
+                    onItemAdded: (item) {
+                      context.read<CustomerOrderCubit>().addOrderItem(item);
+                    },
+                    onItemRemoved: (itemId) {
+                      context.read<CustomerOrderCubit>().removeOrderItem(
+                        itemId,
                       );
-                    }
-                  },
+                    },
+                    onQuantityChanged: (itemId, quantity) {
+                      context.read<CustomerOrderCubit>().updateItemQuantity(
+                        itemId,
+                        quantity,
+                      );
+                    },
+                  ),
+                ),
+                KeepAliveWrapper(
+                  child: OrderConfirmationTab(
+                    onCreateOrder: () async {
+                      await context.read<CustomerOrderCubit>().createOrder();
+                      AppRouter.goBack(context);
+                    },
+                    onSaveLocal: () async {
+                      await context.read<CustomerOrderCubit>().saveLocalDraft();
+                      AppRouter.goBack(context);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Замовлення збережено локально'),
+                            backgroundColor: Colors.blue,
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ),
               ],
             );
@@ -178,5 +201,26 @@ class _CustomerOrderView extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// Keeps tab subtree alive to prevent rebuilds (avoids freezes on tab switches)
+class KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const KeepAliveWrapper({super.key, required this.child});
+
+  @override
+  State<KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

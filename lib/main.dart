@@ -27,6 +27,7 @@ void main() async {
   }
   await initializeDependencies();
   await ThemeController.instance.load();
+
   runApp(const MainApp());
 }
 

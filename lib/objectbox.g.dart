@@ -15,6 +15,7 @@ import 'package:objectbox/objectbox.dart' as obx;
 import 'package:objectbox_flutter_libs/objectbox_flutter_libs.dart';
 
 import 'core/objectbox/objectbox_entities.dart';
+import 'features/repair_request/data/datasources/local/object_box_repair_local_data_source.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
 
@@ -22,7 +23,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 5898118630066854859),
     name: 'AgentObx',
-    lastPropertyId: const obx_int.IdUid(6, 7665778656174601592),
+    lastPropertyId: const obx_int.IdUid(7, 8752391475914456767),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -64,6 +65,13 @@ final _entities = <obx_int.ModelEntity>[
         type: 6,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 8752391475914456767),
+        name: 'nameLower',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(16, 4973042026819748402),
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -101,7 +109,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 4284781867969496941),
     name: 'KontragentObx',
-    lastPropertyId: const obx_int.IdUid(6, 3482542380234335907),
+    lastPropertyId: const obx_int.IdUid(7, 9058649779790136022),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -143,6 +151,13 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 9058649779790136022),
+        name: 'nameLower',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(17, 1879687407064875301),
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -150,7 +165,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(4, 536119716697023923),
     name: 'NomenclatureObx',
-    lastPropertyId: const obx_int.IdUid(12, 4408787451333387180),
+    lastPropertyId: const obx_int.IdUid(13, 367272998220197779),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -229,6 +244,13 @@ final _entities = <obx_int.ModelEntity>[
         type: 6,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 367272998220197779),
+        name: 'nameLower',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(18, 7158022973388552631),
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -304,6 +326,35 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(7, 2381069354438954941),
+    name: 'RepairRequestObx',
+    lastPropertyId: const obx_int.IdUid(3, 9110858603204666194),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 1420295923853058935),
+        name: 'obxId',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 3543431753762214678),
+        name: 'id',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(19, 6528931826329550424),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 9110858603204666194),
+        name: 'data',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -344,8 +395,8 @@ Future<obx.Store> openStore({
 obx_int.ModelDefinition getObjectBoxModel() {
   final model = obx_int.ModelInfo(
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(6, 5024853998477648590),
-    lastIndexId: const obx_int.IdUid(15, 7774220761926017667),
+    lastEntityId: const obx_int.IdUid(7, 2381069354438954941),
+    lastIndexId: const obx_int.IdUid(19, 6528931826329550424),
     lastRelationId: const obx_int.IdUid(0, 0),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -370,13 +421,15 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final guidOffset = fbb.writeString(object.guid);
         final nameOffset = fbb.writeString(object.name);
         final parentGuidOffset = fbb.writeString(object.parentGuid);
-        fbb.startTable(7);
+        final nameLowerOffset = fbb.writeString(object.nameLower);
+        fbb.startTable(8);
         fbb.addInt64(0, object.obxId);
         fbb.addOffset(1, guidOffset);
         fbb.addOffset(2, nameOffset);
         fbb.addOffset(3, parentGuidOffset);
         fbb.addBool(4, object.isFolder);
         fbb.addInt64(5, object.password);
+        fbb.addOffset(6, nameLowerOffset);
         fbb.finish(fbb.endTable());
         return object.obxId;
       },
@@ -395,6 +448,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
+        final nameLowerParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 16, '');
         final parentGuidParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 10, '');
@@ -413,6 +469,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           obxId: obxIdParam,
           guid: guidParam,
           name: nameParam,
+          nameLower: nameLowerParam,
           parentGuid: parentGuidParam,
           isFolder: isFolderParam,
           password: passwordParam,
@@ -478,13 +535,15 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final edrpouOffset = object.edrpou == null
             ? null
             : fbb.writeString(object.edrpou!);
-        fbb.startTable(7);
+        final nameLowerOffset = fbb.writeString(object.nameLower);
+        fbb.startTable(8);
         fbb.addInt64(0, object.obxId);
         fbb.addOffset(1, guidOffset);
         fbb.addOffset(2, nameOffset);
         fbb.addOffset(3, parentGuidOffset);
         fbb.addBool(4, object.isFolder);
         fbb.addOffset(5, edrpouOffset);
+        fbb.addOffset(6, nameLowerOffset);
         fbb.finish(fbb.endTable());
         return object.obxId;
       },
@@ -503,6 +562,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
+        final nameLowerParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 16, '');
         final parentGuidParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 10, '');
@@ -519,6 +581,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           obxId: obxIdParam,
           guid: guidParam,
           name: nameParam,
+          nameLower: nameLowerParam,
           parentGuid: parentGuidParam,
           isFolder: isFolderParam,
           edrpou: edrpouParam,
@@ -544,7 +607,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final unitNameOffset = fbb.writeString(object.unitName);
         final unitGuidOffset = fbb.writeString(object.unitGuid);
         final descriptionOffset = fbb.writeString(object.description);
-        fbb.startTable(13);
+        final nameLowerOffset = fbb.writeString(object.nameLower);
+        fbb.startTable(14);
         fbb.addInt64(0, object.obxId);
         fbb.addOffset(1, guidOffset);
         fbb.addOffset(2, nameOffset);
@@ -557,6 +621,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(9, unitGuidOffset);
         fbb.addOffset(10, descriptionOffset);
         fbb.addInt64(11, object.createdAtMs);
+        fbb.addOffset(12, nameLowerOffset);
         fbb.finish(fbb.endTable());
         return object.obxId;
       },
@@ -575,6 +640,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final nameParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
+        final nameLowerParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 28, '');
         final articleParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 10, '');
@@ -615,6 +683,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           obxId: obxIdParam,
           guid: guidParam,
           name: nameParam,
+          nameLower: nameLowerParam,
           article: articleParam,
           parentGuid: parentGuidParam,
           isFolder: isFolderParam,
@@ -729,6 +798,48 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    RepairRequestObx: obx_int.EntityDefinition<RepairRequestObx>(
+      model: _entities[6],
+      toOneRelations: (RepairRequestObx object) => [],
+      toManyRelations: (RepairRequestObx object) => {},
+      getId: (RepairRequestObx object) => object.obxId,
+      setId: (RepairRequestObx object, int id) {
+        object.obxId = id;
+      },
+      objectToFB: (RepairRequestObx object, fb.Builder fbb) {
+        final idOffset = fbb.writeString(object.id);
+        final dataOffset = fbb.writeString(object.data);
+        fbb.startTable(4);
+        fbb.addInt64(0, object.obxId);
+        fbb.addOffset(1, idOffset);
+        fbb.addOffset(2, dataOffset);
+        fbb.finish(fbb.endTable());
+        return object.obxId;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final obxIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final idParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final dataParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final object = RepairRequestObx(
+          obxId: obxIdParam,
+          id: idParam,
+          data: dataParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -764,6 +875,11 @@ class AgentObx_ {
   /// See [AgentObx.password].
   static final password = obx.QueryIntegerProperty<AgentObx>(
     _entities[0].properties[5],
+  );
+
+  /// See [AgentObx.nameLower].
+  static final nameLower = obx.QueryStringProperty<AgentObx>(
+    _entities[0].properties[6],
   );
 }
 
@@ -815,6 +931,11 @@ class KontragentObx_ {
   /// See [KontragentObx.edrpou].
   static final edrpou = obx.QueryStringProperty<KontragentObx>(
     _entities[2].properties[5],
+  );
+
+  /// See [KontragentObx.nameLower].
+  static final nameLower = obx.QueryStringProperty<KontragentObx>(
+    _entities[2].properties[6],
   );
 }
 
@@ -879,6 +1000,11 @@ class NomenclatureObx_ {
   static final createdAtMs = obx.QueryIntegerProperty<NomenclatureObx>(
     _entities[3].properties[11],
   );
+
+  /// See [NomenclatureObx.nameLower].
+  static final nameLower = obx.QueryStringProperty<NomenclatureObx>(
+    _entities[3].properties[12],
+  );
 }
 
 /// [PriceObx] entity fields to define ObjectBox queries.
@@ -924,5 +1050,23 @@ class TypeOfRepairObx_ {
   /// See [TypeOfRepairObx.createdAtMs].
   static final createdAtMs = obx.QueryIntegerProperty<TypeOfRepairObx>(
     _entities[5].properties[3],
+  );
+}
+
+/// [RepairRequestObx] entity fields to define ObjectBox queries.
+class RepairRequestObx_ {
+  /// See [RepairRequestObx.obxId].
+  static final obxId = obx.QueryIntegerProperty<RepairRequestObx>(
+    _entities[6].properties[0],
+  );
+
+  /// See [RepairRequestObx.id].
+  static final id = obx.QueryStringProperty<RepairRequestObx>(
+    _entities[6].properties[1],
+  );
+
+  /// See [RepairRequestObx.data].
+  static final data = obx.QueryStringProperty<RepairRequestObx>(
+    _entities[6].properties[2],
   );
 }

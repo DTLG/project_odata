@@ -5,7 +5,7 @@
   "entities": [
     {
       "id": "1:5898118630066854859",
-      "lastPropertyId": "6:7665778656174601592",
+      "lastPropertyId": "7:8752391475914456767",
       "name": "AgentObx",
       "properties": [
         {
@@ -44,6 +44,13 @@
           "id": "6:7665778656174601592",
           "name": "password",
           "type": 6
+        },
+        {
+          "id": "7:8752391475914456767",
+          "name": "nameLower",
+          "indexId": "16:4973042026819748402",
+          "type": 9,
+          "flags": 2048
         }
       ],
       "relations": []
@@ -78,7 +85,7 @@
     },
     {
       "id": "3:4284781867969496941",
-      "lastPropertyId": "6:3482542380234335907",
+      "lastPropertyId": "7:9058649779790136022",
       "name": "KontragentObx",
       "properties": [
         {
@@ -117,13 +124,20 @@
           "id": "6:3482542380234335907",
           "name": "edrpou",
           "type": 9
+        },
+        {
+          "id": "7:9058649779790136022",
+          "name": "nameLower",
+          "indexId": "17:1879687407064875301",
+          "type": 9,
+          "flags": 2048
         }
       ],
       "relations": []
     },
     {
       "id": "4:536119716697023923",
-      "lastPropertyId": "12:4408787451333387180",
+      "lastPropertyId": "13:367272998220197779",
       "name": "NomenclatureObx",
       "properties": [
         {
@@ -194,6 +208,13 @@
           "id": "12:4408787451333387180",
           "name": "createdAtMs",
           "type": 6
+        },
+        {
+          "id": "13:367272998220197779",
+          "name": "nameLower",
+          "indexId": "18:7158022973388552631",
+          "type": 9,
+          "flags": 2048
         }
       ],
       "relations": []
@@ -261,10 +282,36 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "7:2381069354438954941",
+      "lastPropertyId": "3:9110858603204666194",
+      "name": "RepairRequestObx",
+      "properties": [
+        {
+          "id": "1:1420295923853058935",
+          "name": "obxId",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3543431753762214678",
+          "name": "id",
+          "indexId": "19:6528931826329550424",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:9110858603204666194",
+          "name": "data",
+          "type": 9
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "6:5024853998477648590",
-  "lastIndexId": "15:7774220761926017667",
+  "lastEntityId": "7:2381069354438954941",
+  "lastIndexId": "19:6528931826329550424",
   "lastRelationId": "0:0",
   "lastSequenceId": "0:0",
   "modelVersion": 5,

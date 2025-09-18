@@ -204,7 +204,12 @@ class ObjectBox {
 
   List<KontragentObx> searchKontragentyByName(String name) {
     final q = kontragentBox
-        .query(KontragentObx_.name.contains(name, caseSensitive: false))
+        .query(
+          KontragentObx_.nameLower.contains(
+            name.toLowerCase(),
+            caseSensitive: true,
+          ),
+        )
         .order(KontragentObx_.name)
         .build();
     try {

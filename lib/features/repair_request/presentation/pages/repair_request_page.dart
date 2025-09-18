@@ -4,8 +4,9 @@ import '../../../kontragenty/data/models/kontragent_model.dart';
 import '../../../kontragenty/data/datasources/kontragent_local_data_source.dart';
 import '../../../../core/injection/injection_container.dart';
 import '../../domain/entities/repair_request_entity.dart';
-import '../../data/datasources/local/repair_local_data_source.dart';
+import '../../data/datasources/local/sqflite_repair_local_data_source.dart';
 import '../../data/models/repair_request_model.dart';
+import '../../data/datasources/local/repair_local_data_source.dart';
 import '../widgets/repair_customer_selection_tab.dart';
 import '../widgets/repair_product_selection_tab.dart';
 import '../widgets/repair_details_tab.dart';
@@ -19,6 +20,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/supabase_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/routes/app_router.dart';
+import '../../../nomenclature/cubit/nomenclature_cubit.dart';
 
 class RepairRequestPage extends StatefulWidget {
   final RepairRequestEntity? initial;
@@ -94,7 +96,11 @@ class _RepairRequestPageState extends State<RepairRequestPage>
     // Load agent guid from SharedPreferences
     _loadAgentFromPrefs();
     // Preload customers once
-    _preloadCustomers();
+    // _preloadCustomers();
+    // Ensure nomenclature tree is available for product tab
+    try {
+      sl<NomenclatureCubit>().loadRootTree();
+    } catch (_) {}
   }
 
   String _resolveRepairTypeName(String guid) {
@@ -357,61 +363,76 @@ class _RepairRequestPageState extends State<RepairRequestPage>
                 builder: (innerCtx) => TabBarView(
                   controller: _tabs,
                   children: [
-                    AbsorbPointer(
-                      absorbing: _readOnly,
-                      child: RepairCustomerSelectionTab(
-                        prefetched: _prefetchedCustomers,
-                        onSelected: (c) {
-                          innerCtx.read<RepairRequestCubit>().setCustomer(c);
-                          setState(() => _customer = c);
-                          _tabs.animateTo(1);
-                        },
+                    KeepAliveWrapper(
+                      child: AbsorbPointer(
+                        absorbing: _readOnly,
+                        child: RepairCustomerSelectionTab(
+                          prefetched: _prefetchedCustomers,
+                          onSelected: (c) {
+                            innerCtx.read<RepairRequestCubit>().setCustomer(c);
+                            setState(() => _customer = c);
+                            _tabs.animateTo(1);
+                          },
+                        ),
                       ),
                     ),
-                    AbsorbPointer(
-                      absorbing: _readOnly,
-                      child: RepairProductSelectionTab(
-                        initialGuid: _nomGuid,
-                        onSelected: (guid) {
-                          innerCtx
-                              .read<RepairRequestCubit>()
-                              .setNomenclatureGuid(guid);
-                          setState(() => _nomGuid = guid);
-                        },
-                        prefetched: widget.prefetchedNomenclature,
-                      ),
-                    ),
-                    RepairDetailsTab(
-                      repairTypes: _repairTypes,
-                      readOnly: _readOnly,
-                    ),
-                    BlocBuilder<RepairRequestCubit, RepairRequestState>(
-                      builder: (context, s) {
-                        return RepairConfirmationTab(
-                          readOnly: _readOnly,
-                          onSaveLocal: () {
-                            _saveLocal(innerCtx);
-                            AppRouter.goBack(context);
-                          },
-                          onSend: () async {
-                            await _saveLocal(innerCtx);
-                            await _sendToServer(innerCtx);
-                            AppRouter.goBack(context);
-                          },
-                          customer: s.customer ?? _customer,
-                          nomenclatureGuid: s.nomenclatureGuid.isNotEmpty
-                              ? s.nomenclatureGuid
-                              : (_nomGuid ?? ''),
-                          repairTypeName: _resolveRepairTypeName(
-                            s.repairType.isNotEmpty
-                                ? s.repairType
-                                : _repairType,
+                    KeepAliveWrapper(
+                      child: AbsorbPointer(
+                        absorbing: _readOnly,
+                        child: BlocProvider(
+                          create: (_) =>
+                              sl<NomenclatureCubit>()..loadRootTree(),
+                          child: RepairProductSelectionTab(
+                            initialGuid: _nomGuid,
+                            onSelected: (guid) {
+                              innerCtx
+                                  .read<RepairRequestCubit>()
+                                  .setNomenclatureGuid(guid);
+                              // setState(() => _nomGuid = guid);
+                            },
+                            prefetched: widget.prefetchedNomenclature,
                           ),
-                          status: s.status.isNotEmpty ? s.status : _status,
-                          descController: _desc,
-                          priceController: _price,
-                        );
-                      },
+                        ),
+                      ),
+                    ),
+                    KeepAliveWrapper(
+                      child: RepairDetailsTab(
+                        repairTypes: _repairTypes,
+                        readOnly: _readOnly,
+                      ),
+                    ),
+                    KeepAliveWrapper(
+                      child:
+                          BlocBuilder<RepairRequestCubit, RepairRequestState>(
+                            builder: (context, s) {
+                              return RepairConfirmationTab(
+                                readOnly: _readOnly,
+                                onSaveLocal: () {
+                                  _saveLocal(innerCtx);
+                                  AppRouter.goBack(context);
+                                },
+                                onSend: () async {
+                                  await _saveLocal(innerCtx);
+                                  await _sendToServer(innerCtx);
+                                  AppRouter.goBack(context);
+                                },
+                                customer: s.customer ?? _customer,
+                                nomenclatureGuid: s.nomenclatureGuid.isNotEmpty
+                                    ? s.nomenclatureGuid
+                                    : (_nomGuid ?? ''),
+                                repairTypeName: _resolveRepairTypeName(
+                                  s.repairType.isNotEmpty
+                                      ? s.repairType
+                                      : _repairType,
+                                ),
+                                status: s.status.isNotEmpty
+                                    ? s.status
+                                    : _status,
+                                descController: _desc,
+                                priceController: _price,
+                              );
+                            },
+                          ),
                     ),
                   ],
                 ),
@@ -421,5 +442,26 @@ class _RepairRequestPageState extends State<RepairRequestPage>
         ),
       ),
     );
+  }
+}
+
+// Keeps tab subtree alive to prevent rebuild jank when switching tabs
+class KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const KeepAliveWrapper({super.key, required this.child});
+
+  @override
+  State<KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

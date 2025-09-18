@@ -511,6 +511,7 @@ class SqliteKontragentDatasourceImpl
     return KontragentModel(
       guid: map['guid'] ?? '',
       name: map['name'] ?? '',
+      nameLower: map['name'].toLowerCase() ?? '',
       edrpou: map['edrpou'] ?? '',
       isFolder: (map['is_folder'] ?? 0) == 1,
       parentGuid: map['parent_guid'] ?? '',
@@ -530,6 +531,7 @@ class SqliteKontragentDatasourceImpl
     return {
       'guid': model.guid,
       'name': model.name,
+      'nameLower': model.nameLower,
       'edrpou': model.edrpou,
       'is_folder': model.isFolder ? 1 : 0,
       'parent_guid': model.parentGuid,

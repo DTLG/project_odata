@@ -33,6 +33,7 @@ class ObjectBoxKontragentDatasourceImpl
     return KontragentModel(
       guid: e.guid,
       name: e.name,
+      nameLower: e.nameLower,
       edrpou: e.edrpou ?? '',
       isFolder: e.isFolder,
       parentGuid: e.parentGuid,
@@ -45,6 +46,7 @@ class ObjectBoxKontragentDatasourceImpl
     return KontragentObx(
       guid: m.guid,
       name: m.name,
+      nameLower: m.nameLower,
       edrpou: m.edrpou.isEmpty ? null : m.edrpou,
       isFolder: m.isFolder,
       parentGuid: m.parentGuid,

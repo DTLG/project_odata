@@ -32,6 +32,7 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
       id: n.id,
       createdAt: DateTime.fromMillisecondsSinceEpoch(n.createdAtMs),
       name: n.name,
+      nameLower: n.nameLower,
       price: n.price,
       guid: n.guid,
       parentGuid: n.parentGuid,
@@ -48,6 +49,7 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
       obxId: m.objectBoxId,
       guid: m.guid,
       name: m.name,
+      nameLower: (m.nameLower.isNotEmpty ? m.nameLower : m.name.toLowerCase()),
       article: m.article,
       parentGuid: m.parentGuid,
       isFolder: m.isFolder,
@@ -101,7 +103,7 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
     final all = _box.getAll();
     final models = all.map(_fromObx).toList();
     // attach relations
-    final guidSet = models.map((e) => e.guid).toSet();
+    // keep for potential future relation joins
     for (final m in models) {
       m.barcodes = _barcodes
           .query(BarcodeObx_.nomGuid.equals(m.guid))
@@ -243,17 +245,34 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
   Future<List<NomenclatureModel>> searchNomenclatureByName(String name) async {
     await _ensure();
     final q = _box
-        .query(NomenclatureObx_.name.contains(name, caseSensitive: false))
+        .query(
+          NomenclatureObx_.nameLower.contains(
+            name.toLowerCase(),
+            caseSensitive: false,
+          ),
+        )
         .order(NomenclatureObx_.name)
         .build();
     final res = q.find();
     q.close();
-    return res.map(_fromObx).toList();
+    if (res.isNotEmpty) return res.map(_fromObx).toList();
+    // Fallback for legacy records missing nameLower
+    final qb2 = _box
+        .query(NomenclatureObx_.name.contains(name, caseSensitive: false))
+        .order(NomenclatureObx_.name)
+        .build();
+    final res2 = qb2.find();
+    qb2.close();
+    return res2.map(_fromObx).toList();
   }
 
   @override
   Future<void> updateNomenclature(NomenclatureModel nomenclature) async {
     await _ensure();
+    // ensure nameLower is set
+    if (nomenclature.nameLower.isEmpty) {
+      nomenclature.nameLower = nomenclature.name.toLowerCase();
+    }
     _box.put(_toObx(nomenclature));
   }
 }

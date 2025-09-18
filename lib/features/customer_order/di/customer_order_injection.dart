@@ -57,17 +57,19 @@ class CustomerOrderInjection {
       sl.registerLazySingleton(() => SaveLocalOrderUseCase(sl()));
     }
 
-    // Cubit
-    sl.registerFactory(
-      () => CustomerOrderCubit(
-        createOrderUseCase: sl(),
-        saveLocalOrderUseCase: sl(),
-        getAvailableCustomersUseCase: sl(),
-        getAvailableNomenclatureUseCase: sl(),
-        searchCustomersUseCase: sl(),
-        searchNomenclatureUseCase: sl(),
-        searchNomenclatureByBarcodeUseCase: sl(),
-      ),
-    );
+    // Cubit (shared across app to keep cache warm)
+    if (!sl.isRegistered<CustomerOrderCubit>()) {
+      sl.registerLazySingleton(
+        () => CustomerOrderCubit(
+          createOrderUseCase: sl(),
+          saveLocalOrderUseCase: sl(),
+          getAvailableCustomersUseCase: sl(),
+          getAvailableNomenclatureUseCase: sl(),
+          searchCustomersUseCase: sl(),
+          searchNomenclatureUseCase: sl(),
+          searchNomenclatureByBarcodeUseCase: sl(),
+        ),
+      );
+    }
   }
 }

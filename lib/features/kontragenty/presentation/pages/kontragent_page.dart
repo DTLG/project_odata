@@ -39,6 +39,12 @@ class _KontragentViewState extends State<_KontragentView> {
   void initState() {
     super.initState();
     _init();
+    // reactively load roots via cubit on first open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<KontragentCubit>().loadRootFolders();
+      }
+    });
   }
 
   Future<void> _init() async {
@@ -64,57 +70,145 @@ class _KontragentViewState extends State<_KontragentView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Контрагенти'),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              await context.read<KontragentCubit>().syncKontragenty();
-              await _reloadFromLocal();
-            },
-            icon: const Icon(Icons.sync),
-            tooltip: 'Синхронізувати',
-          ),
-          IconButton(
-            onPressed: () {
-              _showClearDataDialog(context, context.read<KontragentCubit>());
-            },
-            icon: const Icon(Icons.clear_all),
-            tooltip: 'Очистити локальні дані',
-          ),
-          IconButton(
-            onPressed: () {
-              _showInfoDialog(context, context.read<KontragentCubit>());
-            },
-            icon: const Icon(Icons.info),
-            tooltip: 'Інформація про дані',
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _reloadFromLocal,
-              child: Column(
-                children: [
-                  const KontragentSearchWidget(),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _roots.length,
-                      itemBuilder: (context, index) {
-                        final folder = _roots[index];
-                        return _FolderNode(
-                          entity: folder,
-                          loadChildren: _loadChildren,
-                          toEntity: _toEntity,
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+    return BlocConsumer<KontragentCubit, KontragentState>(
+      listener: (context, state) async {
+        if (state is KontragentLoading) {
+          if (mounted) setState(() => _loading = true);
+        } else if (state is KontragentLoaded || state is KontragentTreeLoaded) {
+          if (mounted) setState(() => _loading = false);
+          await _reloadFromLocal();
+        } else if (state is KontragentError) {
+          if (mounted) setState(() => _loading = false);
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
+          }
+        }
+      },
+      builder: (context, state) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Контрагенти'),
+          actions: [
+            IconButton(
+              onPressed: () async {
+                await context.read<KontragentCubit>().syncKontragenty();
+                await _reloadFromLocal();
+              },
+              icon: const Icon(Icons.sync),
+              tooltip: 'Синхронізувати',
             ),
+            IconButton(
+              onPressed: () {
+                _showClearDataDialog(context, context.read<KontragentCubit>());
+              },
+              icon: const Icon(Icons.clear_all),
+              tooltip: 'Очистити локальні дані',
+            ),
+            IconButton(
+              onPressed: () {
+                _showInfoDialog(context, context.read<KontragentCubit>());
+              },
+              icon: const Icon(Icons.info),
+              tooltip: 'Інформація про дані',
+            ),
+          ],
+        ),
+        body: state is KontragentLoading
+            ? const Center(child: CircularProgressIndicator())
+            : state is KontragentLoaded || state is KontragentTreeLoaded
+            ? RefreshIndicator(
+                onRefresh: _reloadFromLocal,
+                child: Column(
+                  children: [
+                    const KontragentSearchWidget(),
+                    Expanded(
+                      child: Builder(
+                        builder: (context) {
+                          if (state is KontragentLoaded) {
+                            final list = state.kontragenty;
+                            if (list.isEmpty) {
+                              return const Center(
+                                child: Text('Нічого не знайдено'),
+                              );
+                            }
+                            return ListView.builder(
+                              itemCount: list.length,
+                              itemBuilder: (context, index) =>
+                                  KontragentItemWidget(kontragent: list[index]),
+                            );
+                          }
+                          // Default tree view from local ObjectBox roots
+                          if (_roots.isEmpty) {
+                            return const Center(
+                              child: Text('Немає даних для відображення'),
+                            );
+                          }
+                          return ListView.builder(
+                            itemCount: _roots.length,
+                            itemBuilder: (context, index) {
+                              final folder = _roots[index];
+                              return _FolderNode(
+                                entity: folder,
+                                loadChildren: _loadChildren,
+                                toEntity: _toEntity,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : state is KontragentError
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(state.message, textAlign: TextAlign.center),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _reloadFromLocal,
+                      child: const Text('Спробувати знову'),
+                    ),
+                  ],
+                ),
+              )
+            : const Center(child: Text('Немає даних для відображення')),
+        // _loading
+        //     ? const Center(child: CircularProgressIndicator())
+        //     : RefreshIndicator(
+        //         onRefresh: _reloadFromLocal,
+        //         child: Column(
+        //           children: [
+        //             const KontragentSearchWidget(),
+        //             Expanded(
+        //               child: ListView.builder(
+        //                 itemCount: _roots.length,
+        //                 itemBuilder: (context, index) {
+        //                   final folder = _roots[index];
+        //                   return _FolderNode(
+        //                     entity: folder,
+        //                     loadChildren: _loadChildren,
+        //                     toEntity: _toEntity,
+        //                   );
+        //                 },
+        //               ),
+        //             ),
+        //           ],
+        //         ),
+        //       ),
+      ),
     );
   }
 
@@ -126,6 +220,7 @@ class _KontragentViewState extends State<_KontragentView> {
   KontragentEntity _toEntity(KontragentObx k) => KontragentEntity(
     guid: k.guid,
     name: k.name,
+    nameLower: k.nameLower,
     edrpou: k.edrpou ?? '',
     isFolder: k.isFolder,
     parentGuid: k.parentGuid,

@@ -14,6 +14,9 @@ class NomenclatureObx {
   String name;
 
   @Index()
+  String nameLower;
+
+  @Index()
   String article;
 
   @Index()
@@ -35,6 +38,7 @@ class NomenclatureObx {
     this.obxId = 0,
     required this.guid, // робимо обов’язковим
     this.name = '',
+    this.nameLower = '',
     this.article = '',
     this.parentGuid = '',
     this.isFolder = false,
@@ -93,6 +97,9 @@ class KontragentObx {
   String name;
 
   @Index()
+  String nameLower;
+
+  @Index()
   String parentGuid;
 
   bool isFolder;
@@ -103,6 +110,7 @@ class KontragentObx {
     this.obxId = 0,
     this.guid = '',
     this.name = '',
+    this.nameLower = '',
     this.parentGuid = '',
     this.isFolder = false,
     this.edrpou,
@@ -121,6 +129,9 @@ class AgentObx {
   String name;
 
   @Index()
+  String nameLower;
+
+  @Index()
   String parentGuid;
 
   bool isFolder;
@@ -131,6 +142,7 @@ class AgentObx {
     this.obxId = 0,
     this.guid = '',
     this.name = '',
+    this.nameLower = '',
     this.parentGuid = '',
     this.isFolder = false,
     this.password,

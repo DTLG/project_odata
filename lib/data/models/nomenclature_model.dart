@@ -34,6 +34,9 @@ class NomenclatureModel {
   late String article;
 
   /// Назва одиниці вимірювання
+  late String nameLower;
+
+  /// Назва одиниці вимірювання
   late String unitName;
 
   /// GUID одиниці вимірювання
@@ -50,6 +53,7 @@ class NomenclatureModel {
     required this.id,
     required this.createdAt,
     required this.name,
+    required this.nameLower,
     this.price = 0.0,
     required this.guid,
     this.parentGuid = '',
@@ -69,6 +73,7 @@ class NomenclatureModel {
       id: entity.id,
       createdAt: entity.createdAt,
       name: entity.name,
+      nameLower: entity.nameLower,
       price: entity.price,
       guid: entity.guid,
       parentGuid: entity.parentGuid,
@@ -94,6 +99,7 @@ class NomenclatureModel {
 
   /// Створити модель з JSON (Supabase response)
   factory NomenclatureModel.fromJson(Map<String, dynamic> json) {
+    final String rawName = json['name']?.toString() ?? '';
     return NomenclatureModel(
       id: (json['id'] ?? '').toString(),
       createdAt: () {
@@ -103,7 +109,8 @@ class NomenclatureModel {
         }
         return DateTime.now();
       }(),
-      name: json['name']?.toString() ?? '',
+      name: rawName,
+      nameLower: rawName.toLowerCase(),
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       guid: json['guid']?.toString() ?? '',
       parentGuid: json['parent_guid']?.toString() ?? '',
@@ -148,6 +155,7 @@ class NomenclatureModel {
       'id': id,
       'created_at': createdAt.toIso8601String(),
       'name': name,
+      'name_lower': nameLower,
       'price': price,
       'guid': guid,
       'parent_guid': parentGuid,
@@ -167,6 +175,7 @@ class NomenclatureModel {
       id: id,
       createdAt: createdAt,
       name: name,
+      nameLower: nameLower,
       price: price,
       guid: guid,
       parentGuid: parentGuid,

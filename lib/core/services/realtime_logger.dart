@@ -38,9 +38,9 @@ class RealtimeLoggerService {
           table: table,
           callback: (payload) {
             // ignore: avoid_print
-            print(
-              '🔔 DB Change [${payload.eventType}] ${payload.schema}.${payload.table} -> new: ${payload.newRecord} old: ${payload.oldRecord}',
-            );
+            // print(
+            //   '🔔 DB Change [${payload.eventType}] ${payload.schema}.${payload.table} -> new: ${payload.newRecord} old: ${payload.oldRecord}',
+            // );
             // Apply to local SQLite
             RealtimeApplier.apply(payload);
           },

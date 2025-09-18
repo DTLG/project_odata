@@ -6,6 +6,7 @@ import '../../../kontragenty/data/models/kontragent_model.dart';
 import '../../data/models/repair_request_model.dart';
 import 'repair_request_page.dart';
 import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../data/datasources/local/sqflite_repair_local_data_source.dart';
 import '../../data/datasources/local/repair_local_data_source.dart';
 import '../../../../core/injection/injection_container.dart';
 
@@ -131,9 +132,11 @@ class _RepairRequestsListPageState extends State<RepairRequestsListPage> {
     _local = RepairLocalDataSourceImpl();
     _kontrLocal = sl<KontragentLocalDataSource>();
     _nomLocal = sl<NomenclatureLocalDatasource>();
-    _load();
-    _prefetchNomenclature();
-    _subscribeRealtime();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      // _prefetchNomenclature();
+      _subscribeRealtime();
+    });
   }
 
   Future<void> _load() async {
@@ -159,10 +162,12 @@ class _RepairRequestsListPageState extends State<RepairRequestsListPage> {
           .map((e) => e.customerGuid)
           .where((g) => g.isNotEmpty)
           .toSet();
-      for (final g in guids) {
-        final c = await _kontrLocal.getKontragentByGuid(g);
-        if (c != null) _customerNameByGuid[g] = c.name;
-      }
+      await Future.wait(
+        guids.map((g) async {
+          final c = await _kontrLocal.getKontragentByGuid(g);
+          if (c != null) _customerNameByGuid[g] = c.name;
+        }),
+      );
 
       setState(() {
         _items = list;
@@ -206,10 +211,12 @@ class _RepairRequestsListPageState extends State<RepairRequestsListPage> {
           .map((e) => e.customerGuid)
           .where((g) => g.isNotEmpty)
           .toSet();
-      for (final g in guids) {
-        final c = await _kontrLocal.getKontragentByGuid(g);
-        if (c != null) _customerNameByGuid[g] = c.name;
-      }
+      await Future.wait(
+        guids.map((g) async {
+          final c = await _kontrLocal.getKontragentByGuid(g);
+          if (c != null) _customerNameByGuid[g] = c.name;
+        }),
+      );
 
       setState(() {
         _items = list;
@@ -341,6 +348,13 @@ class _RepairRequestsListPageState extends State<RepairRequestsListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Заявки на ремонт'),
+        leading: IconButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _unsubscribeRealtime();
+          },
+          icon: Icon(Icons.arrow_back),
+        ),
         actions: [
           Row(
             children: [
@@ -510,7 +524,7 @@ class _RepairRequestsListPageState extends State<RepairRequestsListPage> {
               ),
             ),
           );
-          await _load();
+          // await _load();
         },
         icon: const Icon(Icons.add),
         label: const Text('Нова заявка'),

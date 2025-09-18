@@ -6,6 +6,9 @@ import '../../../../core/entities/nomenclature_entity.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
 import '../../../common/widgets/search_mode_switch.dart' as common;
+import '../../../../core/injection/injection_container.dart';
+import '../../../nomenclature/cubit/nomenclature_cubit.dart' as nomen;
+import '../../../nomenclature/cubit/nomenclature_state.dart' as nstate;
 
 /// Tab for selecting products and adding to cart
 class ProductSelectionTab extends StatefulWidget {
@@ -25,6 +28,26 @@ class _ProductSelectionTabState extends State<ProductSelectionTab> {
   bool _byBarcode = false;
   bool _byArticle = false;
   Timer? _debounce;
+  List<NomenclatureEntity> allItems = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure initial nomenclature list is loaded on first open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Ensure global NomenclatureCubit has data (initialized in Splash)
+      try {
+        final globalNom = sl<nomen.NomenclatureCubit>();
+        if (globalNom.state is! nstate.NomenclatureLoaded &&
+            globalNom.state is! nstate.NomenclatureTreeLoaded) {
+          globalNom.loadRootTree();
+        }
+      } catch (_) {}
+      final cubit = context.read<CustomerOrderCubit>();
+      cubit.loadAvailableNomenclature();
+    });
+  }
 
   @override
   void dispose() {
@@ -172,6 +195,7 @@ class _ProductSelectionTabState extends State<ProductSelectionTab> {
               List<NomenclatureEntity> nomenclatureList = [];
 
               if (state is NomenclatureLoaded) {
+                allItems = state.nomenclature;
                 nomenclatureList = state.nomenclature;
               } else if (state is CustomerOrderWithNomenclatureLoaded) {
                 nomenclatureList = state.nomenclature;

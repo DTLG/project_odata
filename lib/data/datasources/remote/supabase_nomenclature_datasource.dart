@@ -96,7 +96,7 @@ class SupabaseNomenclatureDatasourceImpl
     try {
       final allRecords = <Map<String, dynamic>>[];
       const int pageSize = 1000;
-      int lastId = 0; // курсор по колонці id
+      int lastId = 0;
       int page = 1;
 
       while (true) {

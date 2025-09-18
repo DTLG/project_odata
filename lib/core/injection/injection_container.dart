@@ -1,6 +1,5 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/datasources/local/sqflite_nomenclature_datasource.dart';
 import '../../data/datasources/local/objectbox_nomenclature_datasource.dart';
 import '../../data/datasources/remote/supabase_nomenclature_datasource.dart';
 import '../../data/repositories/nomenclature_repository_impl.dart';
@@ -41,6 +40,8 @@ import '../../features/agents/data/datasources/local/objectbox_agents_datasource
 import '../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
 import '../../features/agents/data/repositories/agents_repository_impl.dart';
 import '../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../features/repair_request/data/datasources/local/repair_local_data_source.dart';
+import '../../features/repair_request/data/datasources/local/object_box_repair_local_data_source.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -118,6 +119,11 @@ void _initDataSources() {
     () => OrdersLocalDataSourceImpl(),
   );
 
+  sl.registerLazySingleton<RepairLocalDataSource>(
+    () => ObjectBoxRepairLocalDataSource(),
+    // () => RepairLocalDataSourceImpl(),
+  );
+
   // Agents local datasource
   sl.registerLazySingleton<AgentsLocalDataSource>(
     () => ObjectBoxAgentsDatasourceImpl(),
@@ -191,7 +197,7 @@ void _initUseCases() {
 /// Ініціалізація cubits
 void _initCubits() {
   // Nomenclature cubit
-  sl.registerFactory(
+  sl.registerFactory<NomenclatureCubit>(
     () => NomenclatureCubit(
       syncNomenclatureUseCase: sl(),
       getLocalNomenclatureUseCase: sl(),
@@ -203,7 +209,7 @@ void _initCubits() {
   );
 
   // Kontragent cubit
-  sl.registerFactory(
+  sl.registerFactory<KontragentCubit>(
     () => KontragentCubit(
       syncKontragentyUseCase: sl(),
       getLocalKontragentyUseCase: sl(),

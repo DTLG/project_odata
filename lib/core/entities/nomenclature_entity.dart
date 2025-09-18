@@ -6,6 +6,7 @@ class NomenclatureEntity extends Equatable {
   final String id;
   final DateTime createdAt;
   final String name;
+  final String nameLower;
   final double price;
   final String guid;
   final String parentGuid;
@@ -21,6 +22,7 @@ class NomenclatureEntity extends Equatable {
     required this.id,
     required this.createdAt,
     required this.name,
+    required this.nameLower,
     required this.price,
     required this.guid,
     required this.parentGuid,
@@ -34,10 +36,12 @@ class NomenclatureEntity extends Equatable {
   });
 
   fromJson(Map<String, dynamic> json) {
+    final String rawName = json['name']?.toString() ?? '';
     return NomenclatureEntity(
       id: json['id'],
       createdAt: json['created_at'],
-      name: json['name'],
+      name: rawName,
+      nameLower: rawName.toLowerCase(),
       price: json['price'],
       guid: json['guid'],
       parentGuid: json['parent_guid'],
@@ -56,6 +60,7 @@ class NomenclatureEntity extends Equatable {
     id,
     createdAt,
     name,
+    nameLower,
     price,
     guid,
     parentGuid,

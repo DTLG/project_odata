@@ -3,6 +3,7 @@ import '../../../../core/injection/injection_container.dart';
 import '../../../../features/nomenclature/cubit/nomenclature_cubit.dart';
 import '../../../../core/routes/app_router.dart';
 import '../../../../features/nomenclature/cubit/nomenclature_state.dart';
+import '../../../../features/customer_order/presentation/cubit/customer_order_cubit.dart';
 import '../../../../features/kontragenty/presentation/cubit/kontragent_cubit.dart';
 import '../../../../common/shared_preferiences/sp_func.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -61,9 +62,21 @@ class _SplashPageState extends State<SplashPage> {
       // Use existing cubits/usecases via DI
       final nomenCubit = sl<NomenclatureCubit>();
       final kontrCubit = sl<KontragentCubit>();
+      final orderCubit = sl<CustomerOrderCubit>();
+
+      // Preload barcodes and prices for fast UI mapping
+      setState(() => _message = 'Підготовка довідників (штрихкоди/ціни)...');
+      await nomenCubit.preloadBarcodesAndPrices();
 
       // Check local counts (reuse existing methods)
       await nomenCubit.loadRootTree();
+      // Make this initialized instance the global instance for first open
+      try {
+        if (sl.isRegistered<NomenclatureCubit>()) {
+          sl.unregister<NomenclatureCubit>();
+        }
+      } catch (_) {}
+      sl.registerSingleton<NomenclatureCubit>(nomenCubit);
       await kontrCubit.loadLocalKontragenty();
 
       // If empty -> sync from supabase
@@ -90,12 +103,26 @@ class _SplashPageState extends State<SplashPage> {
       if (needNomenSync || nomenBox.count() == 0) {
         setState(() => _message = 'Синхронізація номенклатури...');
         await nomenCubit.syncNomenclature();
+        await nomenCubit.loadRootTree();
+        // Rebind initialized instance so UI gets a ready one
+        try {
+          if (sl.isRegistered<NomenclatureCubit>()) {
+            sl.unregister<NomenclatureCubit>();
+          }
+        } catch (_) {}
+        sl.registerSingleton<NomenclatureCubit>(nomenCubit);
+
         // After sync via existing flows, copy to ObjectBox if needed (optional)
       }
 
       if (needKontrSync || kontrBox.count() == 0) {
         setState(() => _message = 'Синхронізація контрагентів...');
         await kontrCubit.syncKontragenty();
+        // Ensure fresh state and ObjectBox roots are visible immediately
+        await kontrCubit.loadRootFolders();
+      } else {
+        // Ensure tree state is loaded when data already present
+        await kontrCubit.loadRootFolders();
       }
       if (needAgentsSync) {
         setState(() => _message = 'Синхронізація агентів...');
@@ -107,6 +134,11 @@ class _SplashPageState extends State<SplashPage> {
         );
         await agentsRepo.syncAgents();
       }
+      // Warm-up CustomerOrder caches in background (do not block splash)
+      // It will emit partial results as they arrive and finalize when both are ready
+      // Ignore completion here; page continues
+      // Fire and forget
+      orderCubit.initialize();
 
       // Sync types_of_repair if empty
       if (typesBox.count() == 0) {

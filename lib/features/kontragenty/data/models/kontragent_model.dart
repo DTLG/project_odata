@@ -5,6 +5,7 @@ class KontragentModel extends KontragentEntity {
   const KontragentModel({
     required super.guid,
     required super.name,
+    required super.nameLower,
     required super.edrpou,
     required super.isFolder,
     required super.parentGuid,
@@ -14,13 +15,15 @@ class KontragentModel extends KontragentEntity {
 
   /// Create model from JSON
   factory KontragentModel.fromJson(Map<String, dynamic> json) {
+    final String rawName = json['name']?.toString() ?? '';
     return KontragentModel(
-      guid: json['guid'] ?? '',
-      name: json['name'] ?? '',
-      edrpou: json['edrpou'] ?? '',
-      isFolder: json['is_folder'] ?? false,
-      parentGuid: json['parent_guid'] ?? '',
-      description: json['description'] ?? '',
+      guid: json['guid']?.toString() ?? '',
+      name: rawName,
+      nameLower: rawName.toLowerCase(),
+      edrpou: json['edrpou']?.toString() ?? '',
+      isFolder: (json['is_folder'] as bool?) ?? false,
+      parentGuid: json['parent_guid']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
       createdAt: () {
         final value = json['created_at'];
         if (value is String) {
@@ -49,6 +52,7 @@ class KontragentModel extends KontragentEntity {
     return KontragentModel(
       guid: entity.guid,
       name: entity.name,
+      nameLower: entity.nameLower,
       edrpou: entity.edrpou,
       isFolder: entity.isFolder,
       parentGuid: entity.parentGuid,

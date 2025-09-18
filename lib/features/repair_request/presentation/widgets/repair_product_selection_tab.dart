@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
-import '../../../../core/injection/injection_container.dart';
 import '../../../common/widgets/search_mode_switch.dart' as common;
-import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../../nomenclature/cubit/nomenclature_cubit.dart';
+import '../../../nomenclature/cubit/nomenclature_state.dart';
+import '../cubit/repair_request_cubit.dart';
 
 class RepairProductSelectionTab extends StatefulWidget {
   final String? initialGuid;
@@ -24,14 +26,7 @@ class RepairProductSelectionTab extends StatefulWidget {
 class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _barcodeController = TextEditingController();
-  late final NomenclatureLocalDatasource _local;
-
-  List<dynamic> _all = const [];
-  List<dynamic> _shown = const [];
-  bool _loading = true;
-  bool _isSearchMode = false;
-  String? _selectedGuid;
-  bool _loadedOnce = false;
+  String? _selectedGuid; // deprecated local selection; kept for backward-compat
   // search mode flags
   bool _byName = true;
   bool _byBarcode = false;
@@ -41,17 +36,7 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
   @override
   void initState() {
     super.initState();
-    _local = sl<NomenclatureLocalDatasource>();
     _selectedGuid = widget.initialGuid;
-    if (widget.prefetched != null && widget.prefetched!.isNotEmpty) {
-      _all = widget.prefetched!;
-      _shown = widget.prefetched!;
-      _isSearchMode = false;
-      _loading = false;
-      _loadedOnce = true;
-    } else {
-      _loadOnce();
-    }
   }
 
   @override
@@ -61,81 +46,8 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final all = await _local.getAllNomenclature();
-    setState(() {
-      _all = all;
-      _shown = all;
-      _isSearchMode = false;
-      _loading = false;
-    });
-  }
-
-  Future<void> _loadOnce() async {
-    if (_loadedOnce) return;
-    await _load();
-    _loadedOnce = true;
-  }
-
-  Future<void> _searchByName(String query) async {
-    if (query.trim().isEmpty) {
-      setState(() {
-        _isSearchMode = false;
-        _shown = _all;
-      });
-      return;
-    }
-    final results = await _local.searchNomenclatureByName(query);
-    setState(() {
-      _isSearchMode = true;
-      _shown = results;
-    });
-  }
-
-  Future<void> _searchByBarcode(String barcode) async {
-    if (barcode.trim().isEmpty) {
-      setState(() {
-        _isSearchMode = false;
-        _shown = _all;
-      });
-      return;
-    }
-    final one = await _local.getNomenclatureByBarcode(barcode);
-    setState(() {
-      _isSearchMode = true;
-      _shown = one != null ? [one] : const [];
-    });
-  }
-
-  Future<void> _searchByArticle(String article) async {
-    final q = article.trim();
-    if (q.isEmpty) {
-      setState(() {
-        _isSearchMode = false;
-        _shown = _all;
-      });
-      return;
-    }
-    final String qLower = q.toLowerCase();
-    // Filter locally to return multiple matches (up to 100)
-    final List<dynamic> filtered = _all
-        .where(
-          (e) =>
-              e.article != null &&
-              e.article.toString().toLowerCase().contains(qLower),
-        )
-        .take(100)
-        .toList();
-    setState(() {
-      _isSearchMode = true;
-      _shown = filtered;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
     return Column(
       children: [
         Padding(
@@ -167,8 +79,7 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
-                            setState(() => _isSearchMode = false);
-                            _shown = _all;
+                            context.read<NomenclatureCubit>().loadRootTree();
                           },
                         ),
                     ],
@@ -176,7 +87,6 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
                   border: const OutlineInputBorder(),
                 ),
                 onChanged: (value) {
-                  setState(() => _isSearchMode = value.trim().isNotEmpty);
                   _debounce?.cancel();
                   _debounce = Timer(
                     const Duration(milliseconds: 250),
@@ -184,18 +94,16 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
                       if (!mounted) return;
                       final q = value.trim();
                       if (q.isEmpty) {
-                        setState(() {
-                          _isSearchMode = false;
-                          _shown = _all;
-                        });
+                        context.read<NomenclatureCubit>().loadRootTree();
                         return;
                       }
+                      final cubit = context.read<NomenclatureCubit>();
                       if (_byBarcode) {
-                        await _searchByBarcode(q);
+                        await cubit.searchNomenclatureByBarcode(q);
                       } else if (_byArticle) {
-                        await _searchByArticle(q);
+                        await cubit.searchNomenclatureByArticle(q);
                       } else {
-                        await _searchByName(q);
+                        await cubit.searchNomenclatureByName(q);
                       }
                     },
                   );
@@ -203,13 +111,13 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
                 onSubmitted: (value) {
                   final q = value.trim();
                   if (q.isEmpty) return;
-                  setState(() => _isSearchMode = true);
+                  final cubit = context.read<NomenclatureCubit>();
                   if (_byBarcode) {
-                    _searchByBarcode(q);
+                    cubit.searchNomenclatureByBarcode(q);
                   } else if (_byArticle) {
-                    _searchByArticle(q);
+                    cubit.searchNomenclatureByArticle(q);
                   } else {
-                    _searchByName(q);
+                    cubit.searchNomenclatureByName(q);
                   }
                 },
               ),
@@ -230,75 +138,106 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
           ),
         ),
 
-        Expanded(child: _buildBody()),
-      ],
-    );
-  }
+        Expanded(
+          child: BlocBuilder<NomenclatureCubit, NomenclatureState>(
+            builder: (context, state) {
+              if (state is NomenclatureLoading ||
+                  state is NomenclatureLoadingWithProgress) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-  Widget _buildBody() {
-    if (_shown.isEmpty) {
-      return const Center(child: Text('Товари не знайдені'));
-    }
-    if (_isSearchMode) {
-      return ListView.builder(
-        itemCount: _shown.length,
-        itemBuilder: (_, i) => _buildNomenclatureTile(_shown[i]),
-      );
-    }
-    final tree = _buildTree(_shown);
-    final roots = tree.rootFolders;
-    return ListView.builder(
-      itemCount: roots.length,
-      itemBuilder: (_, i) {
-        final root = roots[i];
-        if (root.isFolder) {
-          return _FolderNode(
-            node: root,
-            childrenByParent: tree.childrenByParent,
-            tileBuilder: _buildNomenclatureTile,
-          );
-        }
-        return _buildNomenclatureTile(root);
-      },
+              if (state is NomenclatureFoundByArticle) {
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        children: [_buildNomenclatureTile(state.nomenclature)],
+                      ),
+                    ),
+                    _buildBackToFoldersButton(context),
+                  ],
+                );
+              }
+
+              if (state is NomenclatureSearchResult) {
+                final list = state.searchResults;
+                if (list.isEmpty) {
+                  return const Center(child: Text('Товари не знайдені'));
+                }
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: list.length,
+                        itemBuilder: (_, i) => _buildNomenclatureTile(list[i]),
+                      ),
+                    ),
+                    _buildBackToFoldersButton(context),
+                  ],
+                );
+              }
+
+              if (state is NomenclatureTreeLoaded) {
+                final roots = state.rootFolders;
+                if (roots.isEmpty) {
+                  return const Center(child: Text('Товари не знайдені'));
+                }
+                return ListView.builder(
+                  itemCount: roots.length,
+                  itemBuilder: (_, i) {
+                    final root = roots[i];
+                    if (root.isFolder) {
+                      return _ObxFolderNode(
+                        node: root,
+                        tileBuilder: _buildNomenclatureTile,
+                      );
+                    }
+                    return _buildNomenclatureTile(root);
+                  },
+                );
+              }
+
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildNomenclatureTile(dynamic n) {
     if (n.isFolder) return const SizedBox.shrink();
-    final isSelected = _selectedGuid == n.guid;
-    return ListTile(
-      title: Text(n.name),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (n.article.toString().isNotEmpty) Text('Артикул: ${n.article}'),
-          // Text('Ціна: ${n.price.toStringAsFixed(2)} грн'),
-        ],
-      ),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle, color: Colors.green)
-          : const Icon(Icons.radio_button_unchecked),
-      onTap: () {
-        setState(() => _selectedGuid = n.guid);
-        widget.onSelected(n.guid);
+    return BlocBuilder<RepairRequestCubit, RepairRequestState>(
+      buildWhen: (p, s) => p.nomenclatureGuid != s.nomenclatureGuid,
+      builder: (context, s) {
+        final selectedGuid = s.nomenclatureGuid.isNotEmpty
+            ? s.nomenclatureGuid
+            : null;
+        final isSelected = selectedGuid == n.guid;
+        return ListTile(
+          title: Text(n.name),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (n.article.toString().isNotEmpty)
+                Text('Артикул: ${n.article}'),
+            ],
+          ),
+          trailing: isSelected
+              ? const Icon(Icons.check_circle, color: Colors.green)
+              : const Icon(Icons.radio_button_unchecked),
+          onTap: () {
+            try {
+              context.read<RepairRequestCubit>().setNomenclatureGuid(n.guid);
+            } catch (_) {}
+            // widget.onSelected(n.guid);
+          },
+        );
       },
     );
   }
 
-  _TreeData _buildTree(List<dynamic> all) {
-    const String rootGuid = '00000000-0000-0000-0000-000000000000';
-    final Map<String, List<dynamic>> childrenByParent = {};
-    for (final e in all) {
-      final String parent = (e.parentGuid.toString().isEmpty)
-          ? rootGuid
-          : e.parentGuid;
-      final list = childrenByParent[parent] ??= <dynamic>[];
-      list.add(e);
-    }
-    final List<dynamic> roots = (childrenByParent[rootGuid] ?? <dynamic>[])
-      ..sort((a, b) => a.name.compareTo(b.name));
-    return _TreeData(roots, childrenByParent);
-  }
+  // No internal tree building; rely on cubit's tree state
 
   Future<void> _scanBarcode() async {
     try {
@@ -318,7 +257,9 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
 
       if (result.type == ResultType.Barcode && result.rawContent.isNotEmpty) {
         if (!mounted) return;
-        await _searchByBarcode(result.rawContent);
+        context.read<NomenclatureCubit>().searchNomenclatureByBarcode(
+          result.rawContent,
+        );
         _barcodeController.clear();
       } else if (result.type == ResultType.Error) {
         if (!mounted) return;
@@ -339,12 +280,23 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
       );
     }
   }
-}
 
-class _TreeData {
-  final List<dynamic> rootFolders;
-  final Map<String, List<dynamic>> childrenByParent;
-  _TreeData(this.rootFolders, this.childrenByParent);
+  Widget _buildBackToFoldersButton(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          onPressed: () {
+            _searchController.clear();
+            _barcodeController.clear();
+            context.read<NomenclatureCubit>().loadRootTree();
+          },
+          child: const Text('Повернутись до папок'),
+        ),
+      ),
+    );
+  }
 }
 
 class _FolderNode extends StatelessWidget {
@@ -373,6 +325,64 @@ class _FolderNode extends StatelessWidget {
         }
         return tileBuilder(child);
       }).toList(),
+    );
+  }
+}
+
+class _ObxFolderNode extends StatefulWidget {
+  const _ObxFolderNode({required this.node, required this.tileBuilder});
+  final dynamic node;
+  final Widget Function(dynamic) tileBuilder;
+
+  @override
+  State<_ObxFolderNode> createState() => _ObxFolderNodeState();
+}
+
+class _ObxFolderNodeState extends State<_ObxFolderNode> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      leading: const Icon(Icons.folder),
+      title: Text(widget.node.name),
+      onExpansionChanged: (v) => setState(() => _expanded = v),
+      children: _expanded
+          ? [
+              FutureBuilder<List<dynamic>>(
+                future: context.read<NomenclatureCubit>().loadChildren(
+                  widget.node.guid,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.all(12.0),
+                      child: SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+                  final children = snapshot.data ?? const <dynamic>[];
+                  if (children.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Column(
+                    children: children.map((child) {
+                      if (child.isFolder) {
+                        return _ObxFolderNode(
+                          node: child,
+                          tileBuilder: widget.tileBuilder,
+                        );
+                      }
+                      return widget.tileBuilder(child);
+                    }).toList(),
+                  );
+                },
+              ),
+            ]
+          : const <Widget>[],
     );
   }
 }
