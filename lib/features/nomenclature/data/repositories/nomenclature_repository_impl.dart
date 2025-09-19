@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
-import '../../core/entities/nomenclature_entity.dart';
-import '../../core/errors/failures.dart';
-import '../../core/repositories/nomenclature_repository.dart';
+import '../../domain/entities/nomenclature_entity.dart';
+import '../../../../core/errors/failures.dart';
+import '../../domain/repositories/nomenclature_repository.dart';
 import '../datasources/remote/supabase_nomenclature_datasource.dart';
 import '../models/nomenclature_model.dart';
 import '../datasources/local/nomenclature_local_datasource.dart';

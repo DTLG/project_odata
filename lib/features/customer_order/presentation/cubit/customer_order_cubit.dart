@@ -10,7 +10,7 @@ import '../../domain/usecases/search_nomenclature_usecase.dart';
 import '../../domain/usecases/search_nomenclature_by_barcode_usecase.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../kontragenty/domain/entities/kontragent_entity.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
+import '../../../nomenclature/domain/entities/nomenclature_entity.dart';
 
 part 'customer_order_state.dart';
 

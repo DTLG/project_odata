@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/injection/injection_container.dart';
-import '../cubit/nomenclature_cubit.dart';
-import '../cubit/nomenclature_state.dart';
-import '../../../core/entities/nomenclature_entity.dart';
+import 'cubit/nomenclature_cubit.dart';
+import 'cubit/nomenclature_state.dart';
+import '../domain/entities/nomenclature_entity.dart';
 import 'widgets/nomenclature_item_widget.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
-import '../../common/widgets/search_mode_switch.dart' as common;
+import '../../common/widgets/search_mode_switch.dart';
 import '../../../core/objectbox/objectbox_entities.dart';
 
 /// Сторінка номенклатури
@@ -34,9 +34,9 @@ class NomenclatureView extends StatelessWidget {
         // if (state is NomenclatureInitial) {
         //   context.read<NomenclatureCubit>().loadRootTree();
         // } else
-        if (state is NomenclatureLoadingWithProgress) {
+        if (state.status.isLoading) {
           _showProgressDialog(context, state);
-        } else if (state is NomenclatureSyncSuccess) {
+        } else if (state.status.isSyncSuccess) {
           if (_progressDialogShown) {
             _progressDialogShown = false;
             Navigator.of(context, rootNavigator: true).pop();
@@ -48,7 +48,7 @@ class NomenclatureView extends StatelessWidget {
               backgroundColor: Colors.green,
             ),
           );
-        } else if (state is NomenclatureError) {
+        } else if (state.status.isError) {
           if (_progressDialogShown) {
             _progressDialogShown = false;
             Navigator.of(context, rootNavigator: true).pop();
@@ -273,10 +273,7 @@ class NomenclatureView extends StatelessWidget {
   }
 
   static bool _progressDialogShown = false;
-  void _showProgressDialog(
-    BuildContext context,
-    NomenclatureLoadingWithProgress state,
-  ) {
+  void _showProgressDialog(BuildContext context, NomenclatureState state) {
     if (!_progressDialogShown) {
       _progressDialogShown = true;
 
@@ -300,7 +297,7 @@ class NomenclatureView extends StatelessWidget {
                     : null,
               ),
               const SizedBox(height: 16),
-              Text(state.message, style: const TextStyle(fontSize: 14)),
+              Text(state.message ?? '', style: const TextStyle(fontSize: 14)),
               const SizedBox(height: 8),
               const CircularProgressIndicator(),
             ],
@@ -430,9 +427,9 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
                 byArticle: _searchByArticle,
                 onChanged: (mode) {
                   setState(() {
-                    _searchByName = mode == _SearchMode.name;
-                    _searchByBarcode = mode == _SearchMode.barcode;
-                    _searchByArticle = mode == _SearchMode.article;
+                    _searchByName = mode == SearchParam.name;
+                    _searchByBarcode = mode == SearchParam.barcode;
+                    _searchByArticle = mode == SearchParam.article;
                   });
                 },
               ),
@@ -445,20 +442,21 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
               // if (state is NomenclatureInitial) {
               //   context.read<NomenclatureCubit>().emit();
               // }
-              if (state is NomenclatureLoading) {
+              if (state.status.isLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (state is NomenclatureLoaded) {
+              if (state.status.isLoaded) {
                 return _NomenclatureListWithBack(items: state.nomenclatures);
               }
-              if (state is NomenclatureSearchResult) {
+              if (state.status.isSearchResult) {
                 return _NomenclatureListWithBack(items: state.searchResults);
               }
-              if (state is NomenclatureFoundByArticle) {
-                return _NomenclatureListWithBack(items: [state.nomenclature]);
-              }
-              if (state is NomenclatureNotFoundByArticle) {
+              // if (state.status.isFoundByArticle) {
+              //   return _NomenclatureListWithBack(items: [state.nomenclature]);
+              // }
+              if (state.status.isNotFound ||
+                  state.searchBy == SearchParam.article) {
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -473,7 +471,7 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
                 );
               }
 
-              if (!_isSearchMode && state is NomenclatureTreeLoaded) {
+              if (!_isSearchMode && state.status.isTreeLoaded) {
                 return _NomenclatureTree(rootState: state);
               }
 
@@ -575,7 +573,7 @@ class _BackToFoldersButton extends StatelessWidget {
 
 class _NomenclatureTree extends StatelessWidget {
   const _NomenclatureTree({required this.rootState});
-  final NomenclatureTreeLoaded rootState;
+  final NomenclatureState rootState;
 
   @override
   Widget build(BuildContext context) {
@@ -719,32 +717,30 @@ class _SearchSwitch extends StatelessWidget {
   final bool byName;
   final bool byBarcode;
   final bool byArticle;
-  final ValueChanged<_SearchMode> onChanged;
+  final ValueChanged<SearchParam> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final common.SearchParam current = byBarcode
-        ? common.SearchParam.barcode
+    final SearchParam current = byBarcode
+        ? SearchParam.barcode
         : byArticle
-        ? common.SearchParam.article
-        : common.SearchParam.name;
-    return common.SearchModeSwitch(
+        ? SearchParam.article
+        : SearchParam.name;
+    return SearchModeSwitch(
       value: current,
       onChanged: (p) {
         switch (p) {
-          case common.SearchParam.name:
-            onChanged(_SearchMode.name);
+          case SearchParam.name:
+            onChanged(SearchParam.name);
             break;
-          case common.SearchParam.barcode:
-            onChanged(_SearchMode.barcode);
+          case SearchParam.barcode:
+            onChanged(SearchParam.barcode);
             break;
-          case common.SearchParam.article:
-            onChanged(_SearchMode.article);
+          case SearchParam.article:
+            onChanged(SearchParam.article);
             break;
         }
       },
     );
   }
 }
-
-enum _SearchMode { name, barcode, article }

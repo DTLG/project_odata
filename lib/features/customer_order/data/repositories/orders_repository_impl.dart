@@ -3,7 +3,7 @@ import '../../domain/repositories/orders_repository.dart';
 import '../../../kontragenty/data/datasources/kontragent_local_data_source.dart';
 import '../datasources/local/orders_local_data_source.dart';
 import '../../data/models/customer_order_model.dart';
-import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../../nomenclature/data/datasources/local/nomenclature_local_datasource.dart';
 
 class OrdersRepositoryImpl implements OrdersRepository {
   final OrdersLocalDataSource local;

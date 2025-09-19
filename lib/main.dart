@@ -4,7 +4,7 @@ import 'package:project_odata/core/config/supabase_config.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/routes/app_router.dart';
-import 'features/splash/presentation/splash_page.dart';
+import 'features/splash/presentation/pages/splash_page.dart';
 import 'core/services/realtime_logger.dart';
 import 'core/injection/injection_container.dart';
 import 'core/theme/theme_controller.dart';

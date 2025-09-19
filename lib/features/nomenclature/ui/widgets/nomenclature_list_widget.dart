@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
-import '../../cubit/nomenclature_cubit.dart';
-import '../../cubit/nomenclature_state.dart';
+import '../../domain/entities/nomenclature_entity.dart';
+import '../cubit/nomenclature_cubit.dart';
+import '../cubit/nomenclature_state.dart';
 import 'nomenclature_item_widget.dart';
+import '../../../common/widgets/search_mode_switch.dart';
 
 /// Віджет для відображення списку номенклатури
 class NomenclatureListWidget extends StatelessWidget {
@@ -13,20 +14,19 @@ class NomenclatureListWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<NomenclatureCubit, NomenclatureState>(
       builder: (context, state) {
-        if (state is NomenclatureInitial) {
+        if (state.status.isInitial) {
           return const Center(
-            child:
-                Text('Натисніть кнопку синхронізації для завантаження даних'),
+            child: Text(
+              'Натисніть кнопку синхронізації для завантаження даних',
+            ),
           );
         }
 
-        if (state is NomenclatureLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+        if (state.status.isLoading) {
+          return const Center(child: CircularProgressIndicator());
         }
 
-        if (state is NomenclatureError) {
+        if (state.status.isError) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -45,7 +45,7 @@ class NomenclatureListWidget extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
                   child: Text(
-                    state.message,
+                    state.message ?? '',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
@@ -61,7 +61,7 @@ class NomenclatureListWidget extends StatelessWidget {
           );
         }
 
-        if (state is NomenclatureSyncSuccess) {
+        if (state.status.isSyncSuccess) {
           // Після успішної синхронізації завантажуємо дані
           WidgetsBinding.instance.addPostFrameCallback((_) {
             context.read<NomenclatureCubit>().loadLocalNomenclature();
@@ -70,11 +70,7 @@ class NomenclatureListWidget extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.check_circle,
-                  size: 64,
-                  color: Colors.green,
-                ),
+                const Icon(Icons.check_circle, size: 64, color: Colors.green),
                 const SizedBox(height: 16),
                 Text(
                   'Синхронізацію завершено',
@@ -86,12 +82,15 @@ class NomenclatureListWidget extends StatelessWidget {
           );
         }
 
-        if (state is NomenclatureFoundByArticle) {
-          return _buildSingleItemView(context, state.nomenclature,
-              'Знайдено за артикулом: ${state.article}');
+        if (state.status.isLoaded && state.searchBy == SearchParam.article) {
+          return _buildSingleItemView(
+            context,
+            state.nomenclature!,
+            'Знайдено за артикулом: ${state.article}',
+          );
         }
 
-        if (state is NomenclatureNotFoundByArticle) {
+        if (state.status.isNotFound && state.searchBy == SearchParam.article) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -112,7 +111,7 @@ class NomenclatureListWidget extends StatelessWidget {
           );
         }
 
-        if (state is NomenclatureLoaded) {
+        if (state.status.isLoaded) {
           return _buildNomenclatureList(
             context,
             state.nomenclatures,
@@ -120,7 +119,7 @@ class NomenclatureListWidget extends StatelessWidget {
           );
         }
 
-        if (state is NomenclatureSearchResult) {
+        if (state.status.isSearchResult) {
           return _buildNomenclatureList(
             context,
             state.searchResults,
@@ -134,15 +133,15 @@ class NomenclatureListWidget extends StatelessWidget {
   }
 
   Widget _buildSingleItemView(
-      BuildContext context, NomenclatureEntity nomenclature, String subtitle) {
+    BuildContext context,
+    NomenclatureEntity nomenclature,
+    String subtitle,
+  ) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          child: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
         ),
         NomenclatureItemWidget(nomenclature: nomenclature),
         const Spacer(),
@@ -150,8 +149,11 @@ class NomenclatureListWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildNomenclatureList(BuildContext context,
-      List<NomenclatureEntity> nomenclatures, String subtitle) {
+  Widget _buildNomenclatureList(
+    BuildContext context,
+    List<NomenclatureEntity> nomenclatures,
+    String subtitle,
+  ) {
     if (nomenclatures.isEmpty) {
       return Center(
         child: Column(
@@ -177,10 +179,7 @@ class NomenclatureListWidget extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          child: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
         ),
         Expanded(
           child: ListView.builder(

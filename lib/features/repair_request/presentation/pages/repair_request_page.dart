@@ -20,7 +20,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/supabase_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/routes/app_router.dart';
-import '../../../nomenclature/cubit/nomenclature_cubit.dart';
+import '../../../nomenclature/ui/cubit/nomenclature_cubit.dart';
 
 class RepairRequestPage extends StatefulWidget {
   final RepairRequestEntity? initial;

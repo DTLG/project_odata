@@ -1,8 +1,8 @@
 import 'package:dartz/dartz.dart';
-import '../../entities/nomenclature_entity.dart';
-import '../../errors/failures.dart';
-import '../../repositories/nomenclature_repository.dart';
-import '../usecase.dart';
+import '../entities/nomenclature_entity.dart';
+import '../../../../core/errors/failures.dart';
+import '../repositories/nomenclature_repository.dart';
+import '../../../../core/usecases/usecase.dart';
 
 /// Use case для синхронізації номенклатури з сервером
 class SyncNomenclatureUseCase

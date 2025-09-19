@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import '../../../common/widgets/search_mode_switch.dart' as common;
-import '../../../nomenclature/cubit/nomenclature_cubit.dart';
-import '../../../nomenclature/cubit/nomenclature_state.dart';
+import '../../../nomenclature/ui/cubit/nomenclature_cubit.dart';
+import '../../../nomenclature/ui/cubit/nomenclature_state.dart';
 import '../cubit/repair_request_cubit.dart';
 
 class RepairProductSelectionTab extends StatefulWidget {
@@ -141,25 +141,24 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
         Expanded(
           child: BlocBuilder<NomenclatureCubit, NomenclatureState>(
             builder: (context, state) {
-              if (state is NomenclatureLoading ||
-                  state is NomenclatureLoadingWithProgress) {
+              if (state.status.isLoading) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (state is NomenclatureFoundByArticle) {
-                return Column(
-                  children: [
-                    Expanded(
-                      child: ListView(
-                        children: [_buildNomenclatureTile(state.nomenclature)],
-                      ),
-                    ),
-                    _buildBackToFoldersButton(context),
-                  ],
-                );
-              }
+              // if (state.status.isFoundByArticle) {
+              //   return Column(
+              //     children: [
+              //       Expanded(
+              //         child: ListView(
+              //           children: [_buildNomenclatureTile(state.nomenclature)],
+              //         ),
+              //       ),
+              //       _buildBackToFoldersButton(context),
+              //     ],
+              //   );
+              // }
 
-              if (state is NomenclatureSearchResult) {
+              if (state.status.isSearchResult) {
                 final list = state.searchResults;
                 if (list.isEmpty) {
                   return const Center(child: Text('Товари не знайдені'));
@@ -177,7 +176,7 @@ class _RepairProductSelectionTabState extends State<RepairProductSelectionTab> {
                 );
               }
 
-              if (state is NomenclatureTreeLoaded) {
+              if (state.status.isTreeLoaded) {
                 final roots = state.rootFolders;
                 if (roots.isEmpty) {
                   return const Center(child: Text('Товари не знайдені'));

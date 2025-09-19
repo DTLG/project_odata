@@ -1,10 +1,10 @@
 import 'package:objectbox/objectbox.dart';
 import 'package:project_odata/objectbox.dart';
-import '../../../core/objectbox/objectbox_entities.dart';
+import '../../../../../core/objectbox/objectbox_entities.dart';
 import '../../models/nomenclature_model.dart';
 import 'nomenclature_local_datasource.dart';
 import 'package:project_odata/objectbox.g.dart';
-import '../../../core/injection/injection_container.dart';
+import '../../../../../core/injection/injection_container.dart';
 
 class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
   late final Store _store;
@@ -193,46 +193,59 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
   @override
   Future<void> insertNomenclature(List<NomenclatureModel> nomenclatures) async {
     await _ensure();
-    final obxList = nomenclatures.map(_toObx).toList();
-    _box.putMany(
-      obxList,
-      mode: PutMode.insert,
+    print('Inserting ${nomenclatures.length} nomenclatures into ObjectBox...');
 
-      // conflictResolution: ConflictResolution.replace,
-    );
+    final obxList = nomenclatures.map(_toObx).toList();
+    print('Mapped ${obxList.length} nomenclatures to ObjectBox entities');
+
+    _box.putMany(obxList, mode: PutMode.insert);
+    print('Inserted nomenclatures into main box');
+
     for (final n in nomenclatures) {
+      print('Processing relations for nomenclature ${n.guid}...');
+
       // barcodes
       final existingB = _barcodes
           .query(BarcodeObx_.nomGuid.equals(n.guid))
           .build();
-      _barcodes.removeMany(existingB.findIds());
+      final existingBarcodeIds = existingB.findIds();
+      print(
+        'Found ${existingBarcodeIds.length} existing barcodes for ${n.guid}',
+      );
+      _barcodes.removeMany(existingBarcodeIds);
       existingB.close();
+
       if (n.barcodes.isNotEmpty) {
-        _barcodes.putMany(
-          n.barcodes
-              .map((b) => BarcodeObx(nomGuid: n.guid, barcode: b.barcode))
-              .toList(),
-        );
+        final barcodeEntities = n.barcodes
+            .map((b) => BarcodeObx(nomGuid: n.guid, barcode: b.barcode))
+            .toList();
+        _barcodes.putMany(barcodeEntities);
+        print('Inserted ${barcodeEntities.length} new barcodes for ${n.guid}');
       }
+
       // prices
       final existingP = _prices.query(PriceObx_.nomGuid.equals(n.guid)).build();
-      _prices.removeMany(existingP.findIds());
+      final existingPriceIds = existingP.findIds();
+      print('Found ${existingPriceIds.length} existing prices for ${n.guid}');
+      _prices.removeMany(existingPriceIds);
       existingP.close();
+
       if (n.prices.isNotEmpty) {
-        _prices.putMany(
-          n.prices
-              .map(
-                (p) => PriceObx(
-                  nomGuid: n.guid,
-                  price: p.price,
-                  createdAtMs:
-                      (p.createdAt ?? DateTime.now()).millisecondsSinceEpoch,
-                ),
-              )
-              .toList(),
-        );
+        final priceEntities = n.prices
+            .map(
+              (p) => PriceObx(
+                nomGuid: n.guid,
+                price: p.price,
+                createdAtMs:
+                    (p.createdAt ?? DateTime.now()).millisecondsSinceEpoch,
+              ),
+            )
+            .toList();
+        _prices.putMany(priceEntities);
+        print('Inserted ${priceEntities.length} new prices for ${n.guid}');
       }
     }
+    print('Finished inserting all nomenclatures and their relations');
   }
 
   @override

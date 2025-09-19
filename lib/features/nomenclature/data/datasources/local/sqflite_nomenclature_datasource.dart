@@ -1,8 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../../models/nomenclature_model.dart';
-import '../../../core/database/sqlite_helper.dart';
-import '../../../core/config/supabase_config.dart';
+import '../../../../../core/database/sqlite_helper.dart';
+import '../../../../../core/config/supabase_config.dart';
 import 'nomenclature_local_datasource.dart';
 
 class SqliteNomenclatureDatasourceImpl implements NomenclatureLocalDatasource {

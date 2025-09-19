@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import '../entities/nomenclature_entity.dart';
-import '../errors/failures.dart';
+import '../../../../core/errors/failures.dart';
 
 /// Абстрактний репозиторій для номенклатури
 abstract class NomenclatureRepository {

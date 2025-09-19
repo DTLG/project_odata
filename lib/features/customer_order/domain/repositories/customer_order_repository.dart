@@ -2,7 +2,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../entities/customer_order_entity.dart';
 import '../../../kontragenty/domain/entities/kontragent_entity.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
+import '../../../nomenclature/domain/entities/nomenclature_entity.dart';
 
 /// Repository interface for customer order operations
 abstract class CustomerOrderRepository {

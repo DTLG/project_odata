@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/customer_order_cubit.dart';
 import '../../domain/entities/customer_order_entity.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
+import '../../../nomenclature/domain/entities/nomenclature_entity.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
 import '../../../common/widgets/search_mode_switch.dart' as common;
 import '../../../../core/injection/injection_container.dart';
-import '../../../nomenclature/cubit/nomenclature_cubit.dart' as nomen;
-import '../../../nomenclature/cubit/nomenclature_state.dart' as nstate;
+import '../../../nomenclature/ui/cubit/nomenclature_cubit.dart' as nomen;
+import '../../../nomenclature/ui/cubit/nomenclature_state.dart' as nstate;
 
 /// Tab for selecting products and adding to cart
 class ProductSelectionTab extends StatefulWidget {
@@ -39,8 +39,8 @@ class _ProductSelectionTabState extends State<ProductSelectionTab> {
       // Ensure global NomenclatureCubit has data (initialized in Splash)
       try {
         final globalNom = sl<nomen.NomenclatureCubit>();
-        if (globalNom.state is! nstate.NomenclatureLoaded &&
-            globalNom.state is! nstate.NomenclatureTreeLoaded) {
+        if (!globalNom.state.status.isLoaded &&
+            !globalNom.state.status.isTreeLoaded) {
           globalNom.loadRootTree();
         }
       } catch (_) {}

@@ -4,8 +4,8 @@ import '../../domain/entities/customer_order_entity.dart';
 import '../../domain/repositories/customer_order_repository.dart';
 import '../../../kontragenty/domain/entities/kontragent_entity.dart';
 import '../../../kontragenty/domain/repositories/kontragent_repository.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
-import '../../../../core/repositories/nomenclature_repository.dart';
+import '../../../nomenclature/domain/entities/nomenclature_entity.dart';
+import '../../../nomenclature/domain/repositories/nomenclature_repository.dart';
 
 /// Implementation of customer order repository
 class CustomerOrderRepositoryImpl implements CustomerOrderRepository {

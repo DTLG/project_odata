@@ -1,8 +1,8 @@
 import 'dart:convert';
 import '../../domain/entities/customer_order_entity.dart';
 // import removed: no longer needed here
-import '../../../../data/models/nomenclature_model.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
+import '../../../nomenclature/data/models/nomenclature_model.dart';
+import '../../../nomenclature/domain/entities/nomenclature_entity.dart';
 
 /// Data model for CustomerOrderEntity
 class CustomerOrderModel extends CustomerOrderEntity {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 // removed unused repair_config import
-import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../../nomenclature/data/datasources/local/nomenclature_local_datasource.dart';
 import '../../../../core/injection/injection_container.dart';
 // removed unused NomenclatureModel import
 import 'package:flutter_bloc/flutter_bloc.dart';

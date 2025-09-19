@@ -1,19 +1,21 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:project_odata/objectbox.dart';
-import '../../../core/usecases/nomenclature/get_local_nomenclature_usecase.dart';
-import '../../../core/usecases/nomenclature/get_nomenclature_count_usecase.dart';
-import '../../../core/usecases/nomenclature/search_nomenclature_by_article_usecase.dart';
-import '../../../core/usecases/nomenclature/search_nomenclature_by_name_usecase.dart';
-import '../../../core/usecases/nomenclature/search_nomenclature_by_barcode_usecase.dart';
-import '../../../core/usecases/nomenclature/sync_nomenclature_usecase.dart';
-import '../../../core/usecases/usecase.dart';
-import '../../../core/injection/injection_container.dart';
-import '../../../core/repositories/nomenclature_repository.dart';
-import '../../../data/datasources/remote/supabase_nomenclature_datasource.dart';
+import '../../domain/usecases/get_local_nomenclature_usecase.dart';
+import '../../domain/usecases/get_nomenclature_count_usecase.dart';
+import '../../domain/usecases/search_nomenclature_by_article_usecase.dart';
+import '../../domain/usecases/search_nomenclature_by_name_usecase.dart';
+import '../../domain/usecases/search_nomenclature_by_barcode_usecase.dart';
+import '../../domain/usecases/sync_nomenclature_usecase.dart';
+import '../../../../core/usecases/usecase.dart';
+import '../../../../core/injection/injection_container.dart';
+import '../../domain/repositories/nomenclature_repository.dart';
+import '../../data/datasources/remote/supabase_nomenclature_datasource.dart';
+import '../../data/datasources/local/objectbox_nomenclature_datasource.dart';
 import 'nomenclature_state.dart';
-import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
-import '../../../core/objectbox/objectbox_entities.dart';
-import '../../../core/entities/nomenclature_entity.dart';
+import '../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../../../core/objectbox/objectbox_entities.dart';
+import '../../domain/entities/nomenclature_entity.dart';
+import '../../../common/widgets/search_mode_switch.dart';
 
 /// Cubit для управління станом номенклатури
 /// Дотримується принципу Single Responsibility (SOLID)
@@ -51,11 +53,11 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
        _searchNomenclatureByArticleUseCase = searchNomenclatureByArticleUseCase,
        _getNomenclatureCountUseCase = getNomenclatureCountUseCase,
        _searchNomenclatureByBarcodeUseCase = searchNomenclatureByBarcodeUseCase,
-       super(NomenclatureInitial());
+       super(NomenclatureState(status: NomenclatureStatus.initial));
 
   /// Load tree root (folders with parentGuid=root and isFolder=true)
   Future<void> loadRootTree() async {
-    emit(NomenclatureLoading());
+    emit(state.copyWith(status: NomenclatureStatus.loading));
 
     final obx = sl<ObjectBox>();
     _obx = obx;
@@ -65,7 +67,8 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
     int totalCount = 0;
     countResult.fold((_) {}, (c) => totalCount = c);
     emit(
-      NomenclatureTreeLoaded(
+      NomenclatureState(
+        status: NomenclatureStatus.treeLoaded,
         rootFolders: roots,
         childrenByParentGuid: Map<String, List<NomenclatureEntity>>.from(
           _childrenByParentGuid,
@@ -77,19 +80,19 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
       '🎯 NomenclatureCubit: Завантажено ${roots.length} номенклатури з локального сховища',
     );
 
-    // Виводимо перші три елементи для діагностики
-    print('🔍 Перші три контрагенти в Cubit:');
-    for (int i = 0; i < roots.length && i < 3; i++) {
-      final kontragent = roots[i];
-      print(
-        '  [${i + 1}] ${kontragent.isFolder ? "📁" : "👤"} ${kontragent.name}',
-      );
-      print('      - GUID: ${kontragent.guid}');
-      print('      - isFolder: ${kontragent.isFolder}');
-      print('      - name: ${kontragent.name}');
-      print('      - nameLower: ${kontragent.nameLower}');
-      print('      - parentGuid: ${kontragent.parentGuid}');
-    }
+    // // Виводимо перші три елементи для діагностики
+    // print('🔍 Перші три контрагенти в Cubit:');
+    // for (int i = 0; i < roots.length && i < 3; i++) {
+    //   final kontragent = roots[i];
+    //   print(
+    //     '  [${i + 1}] ${kontragent.isFolder ? "📁" : "👤"} ${kontragent.name}',
+    //   );
+    //   print('      - GUID: ${kontragent.guid}');
+    //   print('      - isFolder: ${kontragent.isFolder}');
+    //   print('      - name: ${kontragent.name}');
+    //   print('      - nameLower: ${kontragent.nameLower}');
+    //   print('      - parentGuid: ${kontragent.parentGuid}');
+    // }
     // load all locally then filter roots
     // final countResult = await _getNomenclatureCountUseCase(const NoParams());
     // int totalCount = 0;
@@ -192,26 +195,26 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
 
   /// Синхронізація номенклатури з сервером (з прогресом)
   Future<void> syncNomenclature() async {
-    emit(
-      const NomenclatureLoadingWithProgress(
-        message: 'Починаємо синхронізацію...',
-        current: 0,
-        total: 50500,
-      ),
-    );
+    emit(state.copyWith(status: NomenclatureStatus.loading));
 
     try {
       final datasource = sl<SupabaseNomenclatureDatasource>();
 
       // Отримуємо дані з прогресом
-      final nomenclatures = await datasource.getAllNomenclatureWithProgress(
+      final nomenclatures = await datasource.syncNomenclatureWithProgress(
+        local: sl<ObjectboxNomenclatureDatasource>(),
         onProgress: (message, current, total) {
           emit(
-            NomenclatureLoadingWithProgress(
+            NomenclatureState(
+              status: NomenclatureStatus.loading,
               message: message,
               current: current,
               total: total,
             ),
+            //   message: message,
+            //   current: current,
+            //   total: total,
+            // ),
           );
         },
       );
@@ -220,18 +223,24 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
       final repository = sl<NomenclatureRepository>();
 
       emit(
-        const NomenclatureLoadingWithProgress(
+        const NomenclatureState(
+          status: NomenclatureStatus.loading,
           message: 'Збереження в локальну базу...',
           current: 0,
           total: 100,
         ),
+        //   message: 'Збереження в локальну базу...',
+        //   current: 0,
+        //   total: 100,
+        // ),
       );
 
       // Очищуємо стару базу
       await repository.clearLocalNomenclature();
 
       emit(
-        const NomenclatureLoadingWithProgress(
+        const NomenclatureState(
+          status: NomenclatureStatus.loading,
           message: 'Збереження даних...',
           current: 50,
           total: 100,
@@ -239,27 +248,39 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
       );
 
       // Зберігаємо нові дані
-      await repository.saveLocalNomenclature(
-        nomenclatures.map((m) => m.toEntity()).toList(),
-      );
+      // await repository.saveLocalNomenclature(
+      // nomenclatures.map((m) => m.toEntity()).toList(),
+      // nomenclatures,
+      // );
 
       emit(
-        const NomenclatureLoadingWithProgress(
+        const NomenclatureState(
+          status: NomenclatureStatus.loading,
           message: 'Завершення збереження...',
           current: 100,
           total: 100,
         ),
       );
 
-      emit(NomenclatureSyncSuccess(nomenclatures.length));
+      emit(
+        NomenclatureState(
+          status: NomenclatureStatus.syncSuccess,
+          // syncedCount: nomenclatures.length,
+        ),
+      );
     } catch (e) {
-      emit(NomenclatureError('Помилка синхронізації: $e'));
+      emit(
+        NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: 'Помилка синхронізації: $e',
+        ),
+      );
     }
   }
 
   /// Завантаження номенклатури з локальної бази (плоский список)
   Future<void> loadLocalNomenclature() async {
-    emit(NomenclatureLoading());
+    emit(state.copyWith(status: NomenclatureStatus.loading));
 
     // Спочатку отримуємо кількість записів
     final countResult = await _getNomenclatureCountUseCase(const NoParams());
@@ -275,13 +296,15 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
 
     result.fold(
       (failure) => emit(
-        NomenclatureLoaded(
+        NomenclatureState(
+          status: NomenclatureStatus.loaded,
           nomenclatures: const <NomenclatureEntity>[],
           totalCount: totalCount,
         ),
       ),
       (nomenclatures) => emit(
-        NomenclatureLoaded(
+        NomenclatureState(
+          status: NomenclatureStatus.loaded,
           nomenclatures: nomenclatures
               .where((e) => e.isFolder && e.parentGuid == rootGuid)
               .toList(),
@@ -298,16 +321,22 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
       return;
     }
 
-    emit(NomenclatureLoading());
+    emit(state.copyWith(status: NomenclatureStatus.loading));
 
     final result = await _searchNomenclatureByNameUseCase(
       SearchNomenclatureByNameParams(name),
     );
 
     result.fold(
-      (failure) => emit(NomenclatureError(failure.message)),
+      (failure) => emit(
+        NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: failure.message,
+        ),
+      ),
       (nomenclatures) => emit(
-        NomenclatureSearchResult(
+        NomenclatureState(
+          status: NomenclatureStatus.searchResult,
           searchResults: nomenclatures,
           searchQuery: name,
         ),
@@ -318,54 +347,94 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
   /// Пошук номенклатури за артикулом
   Future<void> searchNomenclatureByArticle(String article) async {
     if (article.trim().isEmpty) {
-      emit(const NomenclatureError('Артикул не може бути пустим'));
+      emit(
+        const NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: 'Артикул не може бути пустим',
+        ),
+      );
       return;
     }
 
-    emit(NomenclatureLoading());
+    emit(state.copyWith(status: NomenclatureStatus.loading));
 
     final result = await _searchNomenclatureByArticleUseCase(
       SearchNomenclatureByArticleParams(article),
     );
 
-    result.fold((failure) => emit(NomenclatureError(failure.message)), (list) {
-      if (list.isNotEmpty) {
-        emit(
-          NomenclatureSearchResult(searchResults: list, searchQuery: article),
-        );
-      } else {
-        emit(NomenclatureNotFoundByArticle(article));
-      }
-    });
+    result.fold(
+      (failure) => emit(
+        NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: failure.message,
+        ),
+      ),
+      (list) {
+        if (list.isNotEmpty) {
+          emit(
+            NomenclatureState(
+              status: NomenclatureStatus.searchResult,
+              searchResults: list,
+              searchQuery: article,
+            ),
+          );
+        } else {
+          emit(
+            NomenclatureState(
+              status: NomenclatureStatus.notFound,
+              article: article,
+            ),
+          );
+        }
+      },
+    );
   }
 
   /// Пошук номенклатури за штрихкодом
   Future<void> searchNomenclatureByBarcode(String barcode) async {
     if (barcode.trim().isEmpty) {
-      emit(const NomenclatureError('Штрихкод не може бути пустим'));
+      emit(
+        const NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: 'Штрихкод не може бути пустим',
+        ),
+      );
       return;
     }
 
-    emit(NomenclatureLoading());
+    emit(state.copyWith(status: NomenclatureStatus.loading));
 
     final result = await _searchNomenclatureByBarcodeUseCase(
       SearchNomenclatureByBarcodeParams(barcode),
     );
 
-    result.fold((failure) => emit(NomenclatureError(failure.message)), (
-      nomenclature,
-    ) {
-      if (nomenclature != null) {
-        emit(
-          NomenclatureFoundByArticle(
-            nomenclature: nomenclature,
-            article: barcode,
-          ),
-        );
-      } else {
-        emit(NomenclatureNotFoundByArticle(barcode));
-      }
-    });
+    result.fold(
+      (failure) => emit(
+        NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: failure.message,
+        ),
+      ),
+      (nomenclature) {
+        if (nomenclature != null) {
+          emit(
+            NomenclatureState(
+              status: NomenclatureStatus.searchResult,
+              nomenclature: nomenclature,
+              // article: barcode,
+              searchBy: SearchParam.barcode,
+            ),
+          );
+        } else {
+          emit(
+            NomenclatureState(
+              status: NomenclatureStatus.notFound,
+              searchBy: SearchParam.barcode,
+            ),
+          );
+        }
+      },
+    );
   }
 
   /// Очистити пошук та повернутися до всієї номенклатури
@@ -377,97 +446,76 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
   Future<void> refreshCount() async {
     final result = await _getNomenclatureCountUseCase(const NoParams());
 
-    result.fold((failure) => emit(NomenclatureError(failure.message)), (count) {
-      if (state is NomenclatureLoaded) {
-        final currentState = state as NomenclatureLoaded;
+    result.fold(
+      (failure) => emit(
+        NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: failure.message,
+        ),
+      ),
+      (count) {
         emit(
-          NomenclatureLoaded(
-            nomenclatures: currentState.nomenclatures,
+          NomenclatureState(
+            status: NomenclatureStatus.loaded,
             totalCount: count,
           ),
         );
-      } else if (state is NomenclatureTreeLoaded) {
-        final current = state as NomenclatureTreeLoaded;
-        emit(
-          NomenclatureTreeLoaded(
-            rootFolders: current.rootFolders,
-            childrenByParentGuid: current.childrenByParentGuid,
-            totalCount: count,
-          ),
-        );
-      }
-    });
-  }
-
-  /// Тестування підключення до Supabase
-  Future<void> testConnection() async {
-    emit(NomenclatureLoading());
-
-    try {
-      final datasource = sl<SupabaseNomenclatureDatasource>();
-      final testResult = await datasource.testConnection();
-
-      if (testResult['status'] == 'success') {
-        emit(NomenclatureTestSuccess(testResult));
-      } else {
-        emit(NomenclatureError('Тест не пройдено: ${testResult['error']}'));
-      }
-    } catch (e) {
-      emit(NomenclatureError('Помилка тестування підключення: $e'));
-    }
-  }
-
-  /// Діагностика локальної бази даних SQLite
-  Future<void> debugLocalDatabase() async {
-    emit(NomenclatureLoading());
-
-    try {
-      final localDatasource = sl<NomenclatureLocalDatasource>();
-      final debugResult = await localDatasource.debugDatabase();
-
-      emit(NomenclatureTestSuccess(debugResult));
-    } catch (e) {
-      emit(NomenclatureError('Помилка діагностики локальної БД: $e'));
-    }
+      },
+    );
   }
 
   /// Перестворення локальної бази даних (виправлення проблем)
   Future<void> recreateLocalDatabase() async {
-    emit(NomenclatureLoading());
+    //todo: implement повна синхронізація
+    emit(
+      NomenclatureState(
+        status: NomenclatureStatus.error,
+        errorMessage: 'Метод поки не реалізований',
+      ),
+    );
+    // emit(NomenclatureLoading());
 
-    try {
-      final localDatasource = sl<NomenclatureLocalDatasource>();
-      await localDatasource.recreateDatabase();
+    // try {
+    //   final localDatasource = sl<NomenclatureLocalDatasource>();
+    //   await localDatasource.recreateDatabase();
 
-      emit(
-        NomenclatureTestSuccess({
-          'status': 'success',
-          'message': 'База даних SQLite перестворена',
-          'action': 'recreate_database',
-          'time': DateTime.now().toIso8601String(),
-        }),
-      );
-    } catch (e) {
-      emit(NomenclatureError('Помилка перестворення локальної БД: $e'));
-    }
+    //   emit(
+    //     NomenclatureTestSuccess({
+    //       'status': 'success',
+    //       'message': 'База даних SQLite перестворена',
+    //       'action': 'recreate_database',
+    //       'time': DateTime.now().toIso8601String(),
+    //     }),
+    //   );
+    // } catch (e) {
+    //   emit(NomenclatureError('Помилка перестворення локальної БД: $e'));
+    // }
   }
 
   /// Повністю очистити локальні дані (без перестворення таблиць)
   Future<void> clearLocalData() async {
-    emit(NomenclatureLoading());
+    emit(NomenclatureState(status: NomenclatureStatus.loading));
     try {
       final repository = sl<NomenclatureRepository>();
       await repository.clearLocalNomenclature();
       emit(
-        NomenclatureTestSuccess({
-          'status': 'success',
-          'message': 'Локальні дані очищено',
-          'action': 'clear_local_data',
-          'time': DateTime.now().toIso8601String(),
-        }),
+        NomenclatureState(
+          status: NomenclatureStatus.syncSuccess,
+          testResult: {
+            'status': 'success',
+            'message': 'Локальні дані очищено',
+            'action': 'clear_local_data',
+            'time': DateTime.now().toIso8601String(),
+          },
+        ),
       );
     } catch (e) {
-      emit(NomenclatureError('Не вдалося очистити локальні дані: $e'));
+      emit(
+        NomenclatureState(
+          status: NomenclatureStatus.error,
+          errorMessage: 'Не вдалося очистити локальні дані: $e',
+        ),
+      );
     }
   }
 }

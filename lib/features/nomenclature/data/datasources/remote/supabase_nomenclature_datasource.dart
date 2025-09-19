@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/nomenclature_model.dart';
-import '../../../core/config/supabase_config.dart';
+import '../../../../../core/config/supabase_config.dart';
+import 'package:flutter/foundation.dart';
+import '../local/objectbox_nomenclature_datasource.dart';
 
 /// Абстрактний інтерфейс для віддаленого джерела даних номенклатури
 abstract class SupabaseNomenclatureDatasource {
@@ -12,6 +14,10 @@ abstract class SupabaseNomenclatureDatasource {
   Future<NomenclatureModel?> getNomenclatureByGuid(String guid);
   Future<List<NomenclatureModel>> searchNomenclatureByName(String name);
   Future<Map<String, dynamic>> testConnection();
+  Future<void> syncNomenclatureWithProgress({
+    required ObjectboxNomenclatureDatasource local,
+    Function(String message, int current, int total)? onProgress,
+  });
 }
 
 /// Реалізація віддаленого джерела даних через Supabase
@@ -30,60 +36,29 @@ class SupabaseNomenclatureDatasourceImpl
 
   SupabaseNomenclatureDatasourceImpl(this._supabaseClient);
 
-  Future<Map<String, List<BarcodeModel>>> _fetchBarcodesByGuids(
-    List<String> guids,
-  ) async {
-    final Map<String, List<BarcodeModel>> map = {};
-    final Set<String> guidsSet = guids.toSet();
-    const int pageSize = 1000; // Supabase default max rows per request
-    int offset = 0;
-    while (true) {
-      final rows = await _schemaClient
-          .from(_barcodesTable)
-          .select('nom_guid, barcode')
-          .order('nom_guid')
-          .range(offset, offset + pageSize - 1);
-      if (rows.isEmpty) break;
-      for (final row in rows) {
-        final guid = row['nom_guid']?.toString() ?? '';
-        final code = row['barcode']?.toString() ?? '';
-        if (guid.isEmpty || code.isEmpty) continue;
-        if (!guidsSet.contains(guid)) continue;
-        (map[guid] ??= <BarcodeModel>[]).add(
-          BarcodeModel(nomGuid: guid, barcode: code),
-        );
-      }
-      if (rows.length < pageSize) break;
-      offset += pageSize;
-    }
-    return map;
-  }
+  Future<Map<String, List<T>>> _fetchByGuids<T>({
+    required String table,
+    required List<String> guids,
+    required T Function(Map<String, dynamic>) mapper,
+  }) async {
+    final map = <String, List<T>>{};
+    if (guids.isEmpty) return map;
 
-  Future<Map<String, List<PriceModel>>> _fetchPricesByGuids(
-    List<String> guids,
-  ) async {
-    final Map<String, List<PriceModel>> map = {};
-    final Set<String> guidsSet = guids.toSet();
-    const int pageSize = 1000; // Supabase default max rows per request
-    int offset = 0;
-    while (true) {
+    const int chunkSize = 200;
+    for (var i = 0; i < guids.length; i += chunkSize) {
+      final chunk = guids.skip(i).take(chunkSize).toList();
+
       final rows = await _schemaClient
-          .from(_pricesTable)
-          .select('nom_guid, price')
-          .order('nom_guid')
-          .range(offset, offset + pageSize - 1);
-      if (rows.isEmpty) break;
+          .from(table)
+          .select()
+          .inFilter('nom_guid', chunk);
+
       for (final row in rows) {
         final guid = row['nom_guid']?.toString() ?? '';
-        final price = (row['price'] as num?)?.toDouble();
-        if (guid.isEmpty || price == null) continue;
-        if (!guidsSet.contains(guid)) continue;
-        (map[guid] ??= <PriceModel>[]).add(
-          PriceModel(nomGuid: guid, price: price),
-        );
+        if (guid.isEmpty) continue;
+        final item = mapper(row);
+        (map[guid] ??= []).add(item);
       }
-      if (rows.length < pageSize) break;
-      offset += pageSize;
     }
     return map;
   }
@@ -134,8 +109,21 @@ class SupabaseNomenclatureDatasourceImpl
           .map((e) => e['guid']?.toString() ?? '')
           .where((g) => g.isNotEmpty)
           .toList();
-      final barcodesMap = await _fetchBarcodesByGuids(guids);
-      final pricesMap = await _fetchPricesByGuids(guids);
+      final barcodesMap = await _fetchByGuids<BarcodeModel>(
+        table: _barcodesTable,
+        guids: guids,
+        mapper: (row) =>
+            BarcodeModel(nomGuid: row['nom_guid']!, barcode: row['barcode']!),
+      );
+
+      final pricesMap = await _fetchByGuids<PriceModel>(
+        table: _pricesTable,
+        guids: guids,
+        mapper: (row) => PriceModel(
+          nomGuid: row['nom_guid']!,
+          price: (row['price'] as num).toDouble(),
+        ),
+      );
 
       final models = allRecords.map<NomenclatureModel>((json) {
         final model = NomenclatureModel.fromJson(json);
@@ -147,6 +135,133 @@ class SupabaseNomenclatureDatasourceImpl
       return models;
     } catch (e) {
       throw Exception('Помилка при отриманні номенклатури з Supabase: $e');
+    }
+  }
+
+  @override
+  Future<void> syncNomenclatureWithProgress({
+    required ObjectboxNomenclatureDatasource local,
+    Function(String message, int current, int total)? onProgress,
+  }) async {
+    try {
+      print('Starting nomenclature sync...');
+      const int pageSize = 1000;
+      int lastId = 0;
+      int page = 1;
+      int totalLoaded = 0;
+      int estimatedTotal = 46000;
+
+      print(
+        'Initial parameters: pageSize=$pageSize, lastId=$lastId, page=$page',
+      );
+      onProgress?.call('Початок завантаження...', 0, estimatedTotal);
+
+      while (true) {
+        print('Starting page $page (lastId > $lastId)');
+        onProgress?.call(
+          'Завантаження пакету $page (id > $lastId)...',
+          totalLoaded,
+          estimatedTotal,
+        );
+
+        print('Fetching data from Supabase...');
+        final response = await _schemaClient
+            .from(_tableName)
+            .select(_baseSelect)
+            .gt('id', lastId)
+            .order('id', ascending: true)
+            .limit(pageSize);
+
+        if (response.isEmpty) {
+          print('No more records found, breaking loop');
+          break;
+        }
+
+        print('Processing ${response.length} records from response');
+        // оновлюємо lastId
+        for (final row in response) {
+          final idValue = row['id'];
+          if (idValue is int) {
+            lastId = idValue;
+          } else if (idValue is num) {
+            lastId = idValue.toInt();
+          }
+        }
+        print('Updated lastId to $lastId');
+
+        // збираємо guids для цього пакету
+        final guids = response
+            .map((e) => e['guid']?.toString() ?? '')
+            .where((g) => g.isNotEmpty)
+            .toList();
+        print('Collected ${guids.length} GUIDs for processing');
+
+        // вантажимо штрихкоди + ціни тільки для цього пакету
+        print('Fetching barcodes and prices...');
+        final barcodesMap = await _fetchByGuids<BarcodeModel>(
+          table: _barcodesTable,
+          guids: guids,
+          mapper: (row) =>
+              BarcodeModel(nomGuid: row['nom_guid']!, barcode: row['barcode']!),
+        );
+        final pricesMap = await _fetchByGuids<PriceModel>(
+          table: _pricesTable,
+          guids: guids,
+          mapper: (row) => PriceModel(
+            nomGuid: row['nom_guid']!,
+            price: (row['price'] as num).toDouble(),
+          ),
+        );
+        print(
+          'Fetched ${barcodesMap.length} barcodes and ${pricesMap.length} prices',
+        );
+
+        // конвертація в ізоляті
+        print('Starting compute isolation for model conversion...');
+        final models = await compute((params) {
+          final data = params[0] as List<Map<String, dynamic>>;
+          final barcodes = params[1] as Map<String, List<BarcodeModel>>;
+          final prices = params[2] as Map<String, List<PriceModel>>;
+
+          return data.map<NomenclatureModel>((json) {
+            final model = NomenclatureModel.fromJson(json);
+            model.barcodes = barcodes[model.guid] ?? const <BarcodeModel>[];
+            model.prices = prices[model.guid] ?? const <PriceModel>[];
+            return model;
+          }).toList();
+        }, [response.cast<Map<String, dynamic>>(), barcodesMap, pricesMap]);
+        print('Converted ${models.length} models in compute isolation');
+
+        // збереження у ObjectBox (через local datasource)
+        print('Saving models to ObjectBox...');
+        await local.insertNomenclature(models);
+        print('Saved ${models.length} models to ObjectBox');
+
+        totalLoaded += models.length;
+
+        onProgress?.call(
+          'Завантажено $totalLoaded записів...',
+          totalLoaded,
+          estimatedTotal,
+        );
+
+        if (response.length < pageSize) {
+          print('Received less than pageSize records, breaking loop');
+          break; // останній пакет
+        }
+        page++;
+
+        if (page % 10 == 0) {
+          print('Reached page multiple of 10, adding delay');
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+      }
+
+      print('Sync completed successfully. Total records: $totalLoaded');
+      onProgress?.call('Завершено!', totalLoaded, totalLoaded);
+    } catch (e) {
+      print('Error during sync: $e');
+      throw Exception('Помилка при синхронізації номенклатури: $e');
     }
   }
 
@@ -178,6 +293,7 @@ class SupabaseNomenclatureDatasourceImpl
             .limit(pageSize);
 
         if (response.isEmpty) break;
+        allRecords.addAll(response.cast<Map<String, dynamic>>());
 
         for (final row in response) {
           final idValue = row['id'];
@@ -221,15 +337,35 @@ class SupabaseNomenclatureDatasourceImpl
           .map((e) => e['guid']?.toString() ?? '')
           .where((g) => g.isNotEmpty)
           .toList();
-      final barcodesMap = await _fetchBarcodesByGuids(guids);
-      final pricesMap = await _fetchPricesByGuids(guids);
+      final barcodesMap = await _fetchByGuids<BarcodeModel>(
+        table: _barcodesTable,
+        guids: guids,
+        mapper: (row) =>
+            BarcodeModel(nomGuid: row['nom_guid']!, barcode: row['barcode']!),
+      );
+      final pricesMap = await _fetchByGuids<PriceModel>(
+        table: _pricesTable,
+        guids: guids,
+        mapper: (row) => PriceModel(
+          nomGuid: row['nom_guid']!,
+          price: (row['price'] as num).toDouble(),
+        ),
+      );
 
-      final models = allRecords.map<NomenclatureModel>((json) {
-        final model = NomenclatureModel.fromJson(json);
-        model.barcodes = barcodesMap[model.guid] ?? const <BarcodeModel>[];
-        model.prices = pricesMap[model.guid] ?? const <PriceModel>[];
-        return model;
-      }).toList();
+      // Запускаємо конвертацію в фоновому режимі
+      //todo протестувати
+      final models = await _convertInBackground(
+        allRecords,
+        barcodesMap,
+        pricesMap,
+      );
+
+      // final models = allRecords.map<NomenclatureModel>((json) {
+      //   final model = NomenclatureModel.fromJson(json);
+      //   model.barcodes = barcodesMap[model.guid] ?? const <BarcodeModel>[];
+      //   model.prices = pricesMap[model.guid] ?? const <PriceModel>[];
+      //   return model;
+      // }).toList();
 
       onProgress?.call('Завершено!', models.length, models.length);
 
@@ -237,6 +373,25 @@ class SupabaseNomenclatureDatasourceImpl
     } catch (e) {
       throw Exception('Помилка при отриманні номенклатури з прогресом: $e');
     }
+  }
+
+  Future<List<NomenclatureModel>> _convertInBackground(
+    List<Map<String, dynamic>> allRecords,
+    Map<String, List<BarcodeModel>> barcodesMap,
+    Map<String, List<PriceModel>> pricesMap,
+  ) async {
+    return compute((params) {
+      final records = params[0] as List<Map<String, dynamic>>;
+      final barcodes = params[1] as Map<String, List<BarcodeModel>>;
+      final prices = params[2] as Map<String, List<PriceModel>>;
+
+      return records.map<NomenclatureModel>((json) {
+        final model = NomenclatureModel.fromJson(json);
+        model.barcodes = barcodes[model.guid] ?? const <BarcodeModel>[];
+        model.prices = prices[model.guid] ?? const <PriceModel>[];
+        return model;
+      }).toList();
+    }, [allRecords, barcodesMap, pricesMap]);
   }
 
   @override
@@ -256,8 +411,20 @@ class SupabaseNomenclatureDatasourceImpl
           .map((e) => e['guid']?.toString() ?? '')
           .where((g) => g.isNotEmpty)
           .toList();
-      final barcodesMap = await _fetchBarcodesByGuids(guids);
-      final pricesMap = await _fetchPricesByGuids(guids);
+      final barcodesMap = await _fetchByGuids<BarcodeModel>(
+        table: _barcodesTable,
+        guids: guids,
+        mapper: (row) =>
+            BarcodeModel(nomGuid: row['nom_guid']!, barcode: row['barcode']!),
+      );
+      final pricesMap = await _fetchByGuids<PriceModel>(
+        table: _pricesTable,
+        guids: guids,
+        mapper: (row) => PriceModel(
+          nomGuid: row['nom_guid']!,
+          price: (row['price'] as num).toDouble(),
+        ),
+      );
 
       final models = <NomenclatureModel>[];
       for (int i = 0; i < response.length; i++) {
@@ -315,8 +482,20 @@ class SupabaseNomenclatureDatasourceImpl
           .map((e) => e['guid']?.toString() ?? '')
           .where((g) => g.isNotEmpty)
           .toList();
-      final barcodesMap = await _fetchBarcodesByGuids(guids);
-      final pricesMap = await _fetchPricesByGuids(guids);
+      final barcodesMap = await _fetchByGuids<BarcodeModel>(
+        table: _barcodesTable,
+        guids: guids,
+        mapper: (row) =>
+            BarcodeModel(nomGuid: row['nom_guid']!, barcode: row['barcode']!),
+      );
+      final pricesMap = await _fetchByGuids<PriceModel>(
+        table: _pricesTable,
+        guids: guids,
+        mapper: (row) => PriceModel(
+          nomGuid: row['nom_guid']!,
+          price: (row['price'] as num).toDouble(),
+        ),
+      );
 
       return response.map<NomenclatureModel>((json) {
         final model = NomenclatureModel.fromJson(json);

@@ -10,7 +10,7 @@ import '../../../../core/injection/injection_container.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/customer_order_entity.dart';
 import '../../../kontragenty/domain/entities/kontragent_entity.dart';
-import '../../../nomenclature/cubit/nomenclature_cubit.dart';
+import '../../../nomenclature/ui/cubit/nomenclature_cubit.dart';
 import '../../../kontragenty/presentation/cubit/kontragent_cubit.dart';
 
 /// Main page for customer order with three tabs

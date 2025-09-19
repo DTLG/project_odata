@@ -1,16 +1,16 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/datasources/local/objectbox_nomenclature_datasource.dart';
-import '../../data/datasources/remote/supabase_nomenclature_datasource.dart';
-import '../../data/repositories/nomenclature_repository_impl.dart';
-import '../repositories/nomenclature_repository.dart';
-import '../usecases/nomenclature/get_local_nomenclature_usecase.dart';
-import '../usecases/nomenclature/get_nomenclature_count_usecase.dart';
-import '../usecases/nomenclature/search_nomenclature_by_article_usecase.dart';
-import '../usecases/nomenclature/search_nomenclature_by_name_usecase.dart';
-import '../usecases/nomenclature/search_nomenclature_by_barcode_usecase.dart';
-import '../usecases/nomenclature/sync_nomenclature_usecase.dart';
-import '../../features/nomenclature/cubit/nomenclature_cubit.dart';
+import '../../features/nomenclature/data/datasources/local/objectbox_nomenclature_datasource.dart';
+import '../../features/nomenclature/data/datasources/remote/supabase_nomenclature_datasource.dart';
+import '../../features/nomenclature/data/repositories/nomenclature_repository_impl.dart';
+import '../../features/nomenclature/domain/repositories/nomenclature_repository.dart';
+import '../../features/nomenclature/domain/usecases/get_local_nomenclature_usecase.dart';
+import '../../features/nomenclature/domain/usecases/get_nomenclature_count_usecase.dart';
+import '../../features/nomenclature/domain/usecases/search_nomenclature_by_article_usecase.dart';
+import '../../features/nomenclature/domain/usecases/search_nomenclature_by_name_usecase.dart';
+import '../../features/nomenclature/domain/usecases/search_nomenclature_by_barcode_usecase.dart';
+import '../../features/nomenclature/domain/usecases/sync_nomenclature_usecase.dart';
+import '../../features/nomenclature/ui/cubit/nomenclature_cubit.dart';
 import '../database/sqlite_helper.dart';
 import '../../features/inventory/di/inventory_injection.dart';
 // import removed: KontragentInjection not used directly
@@ -39,9 +39,11 @@ import 'package:project_odata/objectbox.dart';
 import '../../features/agents/data/datasources/local/objectbox_agents_datasource.dart';
 import '../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
 import '../../features/agents/data/repositories/agents_repository_impl.dart';
-import '../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../features/nomenclature/data/datasources/local/nomenclature_local_datasource.dart';
 import '../../features/repair_request/data/datasources/local/repair_local_data_source.dart';
 import '../../features/repair_request/data/datasources/local/object_box_repair_local_data_source.dart';
+import '../../features/splash/presentation/cubit/splash_cubit.dart';
+import '../../features/splash/domain/usecases/bootstrap_app.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -79,9 +81,9 @@ Future<void> _initExternalDependencies() async {
   }
 
   // Ініціалізуємо SQLite для всіх платформ
-  await SqliteHelper.initialize();
+  // await SqliteHelper.initialize();
 
-  print('✅ SQLite готовий до роботи');
+  // print('✅ SQLite готовий до роботи');
 
   // Ініціалізуємо ObjectBox store (one-time)
   try {
@@ -101,8 +103,12 @@ void _initDataSources() {
   sl.registerLazySingleton<SupabaseNomenclatureDatasource>(
     () => SupabaseNomenclatureDatasourceImpl(sl()),
   );
-  sl.registerLazySingleton<NomenclatureLocalDatasource>(
+  // Ensure both the interface and concrete class resolve to the same instance
+  sl.registerLazySingleton<ObjectboxNomenclatureDatasource>(
     () => ObjectboxNomenclatureDatasource(),
+  );
+  sl.registerLazySingleton<NomenclatureLocalDatasource>(
+    () => sl<ObjectboxNomenclatureDatasource>(),
   );
 
   // Kontragent data sources
@@ -172,6 +178,9 @@ void _initRepositories() {
 
 /// Ініціалізація use cases
 void _initUseCases() {
+  // Bootstrap app use case
+  sl.registerLazySingleton(() => BootstrapApp());
+
   // Nomenclature use cases
   sl.registerLazySingleton(() => SyncNomenclatureUseCase(sl()));
   sl.registerLazySingleton(() => GetLocalNomenclatureUseCase(sl()));
@@ -196,6 +205,9 @@ void _initUseCases() {
 
 /// Ініціалізація cubits
 void _initCubits() {
+  // splash cubit
+  sl.registerFactory(() => SplashCubit(sl<BootstrapApp>()));
+
   // Nomenclature cubit
   sl.registerFactory<NomenclatureCubit>(
     () => NomenclatureCubit(

@@ -9,7 +9,7 @@ import '../../features/nomenclature/ui/nomenclature_page.dart';
 import '../../features/kontragenty/presentation/pages/kontragent_page.dart';
 import '../../features/customer_order/presentation/pages/customer_order_page.dart';
 import '../../features/customer_order/presentation/pages/customer_orders_list_page.dart';
-import '../../features/splash/presentation/splash_page.dart';
+import '../../features/splash/presentation/pages/splash_page.dart';
 import '../../features/agents/data/datasources/local/sqlite_agents_datasource.dart';
 import '../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
 import '../../features/agents/data/repositories/agents_repository_impl.dart';

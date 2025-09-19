@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../cubit/nomenclature_cubit.dart';
+import '../cubit/nomenclature_cubit.dart';
 
 enum SearchMode { name, article, barcode }
 

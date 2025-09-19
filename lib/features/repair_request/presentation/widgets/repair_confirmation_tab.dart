@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../../nomenclature/data/datasources/local/nomenclature_local_datasource.dart';
 import '../../../../core/injection/injection_container.dart';
 
 class RepairConfirmationTab extends StatelessWidget {

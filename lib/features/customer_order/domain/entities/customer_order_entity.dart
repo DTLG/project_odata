@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
+import '../../../nomenclature/domain/entities/nomenclature_entity.dart';
 
 /// Entity representing a customer order
 class CustomerOrderEntity extends Equatable {

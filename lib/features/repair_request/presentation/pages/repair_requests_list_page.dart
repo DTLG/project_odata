@@ -5,7 +5,7 @@ import '../../../kontragenty/data/datasources/kontragent_local_data_source.dart'
 import '../../../kontragenty/data/models/kontragent_model.dart';
 import '../../data/models/repair_request_model.dart';
 import 'repair_request_page.dart';
-import '../../../../data/datasources/local/nomenclature_local_datasource.dart';
+import '../../../nomenclature/data/datasources/local/nomenclature_local_datasource.dart';
 import '../../data/datasources/local/sqflite_repair_local_data_source.dart';
 import '../../data/datasources/local/repair_local_data_source.dart';
 import '../../../../core/injection/injection_container.dart';

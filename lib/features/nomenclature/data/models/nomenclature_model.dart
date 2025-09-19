@@ -1,4 +1,4 @@
-import '../../core/entities/nomenclature_entity.dart';
+import '../../domain/entities/nomenclature_entity.dart';
 
 /// Модель для номенклатури
 /// Використовується для локального зберігання даних (SQLite)

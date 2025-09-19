@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/entities/nomenclature_entity.dart';
+import '../../domain/entities/nomenclature_entity.dart';
 import '../../../../common/shared_preferiences/sp_func.dart';
 import '../../../../common/printer/connect_printer.dart';
 
