@@ -5,7 +5,7 @@ import '../../features/inventory/presentation/pages/inventory_documents_page.dar
 import '../../features/inventory/presentation/pages/inventory_data_page.dart';
 import '../../features/orders/presentation/pages/orders_page.dart';
 import '../../features/settings/ui/settings_page.dart';
-import '../../features/nomenclature/ui/nomenclature_page.dart';
+import '../../features/nomenclature/presentation/nomenclature_page.dart';
 import '../../features/kontragenty/presentation/pages/kontragent_page.dart';
 import '../../features/customer_order/presentation/pages/customer_order_page.dart';
 import '../../features/customer_order/presentation/pages/customer_orders_list_page.dart';

@@ -47,6 +47,7 @@ class ObjectBox {
   int upsertNomenclature(NomenclatureObx e) => nomenclatureBox.put(e);
 
   List<NomenclatureObx> getRootNomenclature() {
+    //todo: check if this is correct
     final q = nomenclatureBox
         .query(
           NomenclatureObx_.parentGuid.oneOf([
@@ -62,6 +63,21 @@ class ObjectBox {
     } finally {
       q.close();
     }
+    // final q = nomenclatureBox
+    //     .query(
+    //       NomenclatureObx_.parentGuid.oneOf([
+    //         '',
+    //         '00000000-0000-0000-0000-000000000000',
+    //       ]),
+    //     )
+    //     .order(NomenclatureObx_.isFolder, flags: Order.descending)
+    //     .order(NomenclatureObx_.name)
+    //     .build();
+    // try {
+    //   return q.find();
+    // } finally {
+    //   q.close();
+    // }
   }
 
   void upsertNomenclatureMany(List<NomenclatureObx> list) =>

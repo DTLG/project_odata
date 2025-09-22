@@ -145,29 +145,43 @@ class SupabaseNomenclatureDatasourceImpl
   }) async {
     try {
       print('Starting nomenclature sync...');
+
+      // Отримуємо загальну кількість записів
+
+      final response = await _schemaClient
+          .from(_tableName) // Replace with your table name
+          .select(
+            '*', // Select all columns (or specific columns if desired)
+          )
+          .count(CountOption.exact);
+      // .select('*',  head: true, count: CountOption.exact);
+
+      final totalCount = response.count; // тут буде кількість рядків
+      print('Total rows: $totalCount');
+      // Fallback if count fails
+
       const int pageSize = 1000;
       int lastId = 0;
       int page = 1;
       int totalLoaded = 0;
-      int estimatedTotal = 46000;
 
       print(
         'Initial parameters: pageSize=$pageSize, lastId=$lastId, page=$page',
       );
-      onProgress?.call('Початок завантаження...', 0, estimatedTotal);
+      onProgress?.call('Початок завантаження...', 0, totalCount);
 
       while (true) {
         print('Starting page $page (lastId > $lastId)');
-        onProgress?.call(
-          'Завантаження пакету $page (id > $lastId)...',
-          totalLoaded,
-          estimatedTotal,
-        );
+        // onProgress?.call(
+        //   'Завантаження пакету $page (id > $lastId)...',
+        //   totalLoaded,
+        //   totalCount,
+        // );
 
         print('Fetching data from Supabase...');
         final response = await _schemaClient
             .from(_tableName)
-            .select(_baseSelect)
+            .select('*')
             .gt('id', lastId)
             .order('id', ascending: true)
             .limit(pageSize);
@@ -240,9 +254,9 @@ class SupabaseNomenclatureDatasourceImpl
         totalLoaded += models.length;
 
         onProgress?.call(
-          'Завантажено $totalLoaded записів...',
+          'Завантажено $totalLoaded товарів...',
           totalLoaded,
-          estimatedTotal,
+          totalCount,
         );
 
         if (response.length < pageSize) {
@@ -274,15 +288,15 @@ class SupabaseNomenclatureDatasourceImpl
       const int pageSize = 1000;
       int lastId = 0; // курсор по колонці id
       int page = 1;
-      int estimatedTotal = 46000; // Очікуване значення
+      int totalCount = 46000; // Очікуване значення
 
-      onProgress?.call('Початок завантаження...', 0, estimatedTotal);
+      onProgress?.call('Початок завантаження...', 0, totalCount);
 
       while (true) {
         onProgress?.call(
           'Завантаження пакету $page (id > $lastId)...',
           allRecords.length,
-          estimatedTotal,
+          totalCount,
         );
 
         final response = await _schemaClient
@@ -306,14 +320,14 @@ class SupabaseNomenclatureDatasourceImpl
         }
 
         if (response.length == pageSize &&
-            estimatedTotal < allRecords.length + 1000) {
-          estimatedTotal = allRecords.length + 5000;
+            totalCount < allRecords.length + 1000) {
+          totalCount = allRecords.length + 5000;
         }
 
         onProgress?.call(
           'Завантажено ${allRecords.length} записів (lastId=$lastId)...',
           allRecords.length,
-          estimatedTotal,
+          totalCount,
         );
 
         if (response.length < pageSize) break; // останній пакет

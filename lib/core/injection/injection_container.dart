@@ -10,7 +10,7 @@ import '../../features/nomenclature/domain/usecases/search_nomenclature_by_artic
 import '../../features/nomenclature/domain/usecases/search_nomenclature_by_name_usecase.dart';
 import '../../features/nomenclature/domain/usecases/search_nomenclature_by_barcode_usecase.dart';
 import '../../features/nomenclature/domain/usecases/sync_nomenclature_usecase.dart';
-import '../../features/nomenclature/ui/cubit/nomenclature_cubit.dart';
+import '../../features/nomenclature/presentation/cubit/nomenclature_cubit.dart';
 import '../database/sqlite_helper.dart';
 import '../../features/inventory/di/inventory_injection.dart';
 // import removed: KontragentInjection not used directly

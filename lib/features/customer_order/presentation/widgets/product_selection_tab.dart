@@ -7,8 +7,10 @@ import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
 import '../../../common/widgets/search_mode_switch.dart' as common;
 import '../../../../core/injection/injection_container.dart';
-import '../../../nomenclature/ui/cubit/nomenclature_cubit.dart' as nomen;
-import '../../../nomenclature/ui/cubit/nomenclature_state.dart' as nstate;
+import '../../../nomenclature/presentation/cubit/nomenclature_cubit.dart'
+    as nomen;
+import '../../../nomenclature/presentation/cubit/nomenclature_state.dart'
+    as nstate;
 
 /// Tab for selecting products and adding to cart
 class ProductSelectionTab extends StatefulWidget {

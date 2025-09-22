@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import '../../../common/widgets/search_mode_switch.dart' as common;
-import '../../../nomenclature/ui/cubit/nomenclature_cubit.dart';
-import '../../../nomenclature/ui/cubit/nomenclature_state.dart';
+import '../../../nomenclature/presentation/cubit/nomenclature_cubit.dart';
+import '../../../nomenclature/presentation/cubit/nomenclature_state.dart';
 import '../cubit/repair_request_cubit.dart';
 
 class RepairProductSelectionTab extends StatefulWidget {

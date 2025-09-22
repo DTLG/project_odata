@@ -17,7 +17,7 @@ class NomenclaturePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: sl<NomenclatureCubit>(),
+      value: sl<NomenclatureCubit>()..loadRootTree(),
       child: const NomenclatureView(),
     );
   }
@@ -31,7 +31,7 @@ class NomenclatureView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<NomenclatureCubit, NomenclatureState>(
       listener: (context, state) {
-        // if (state is NomenclatureInitial) {
+        // if (state.status.isInitial) {
         //   context.read<NomenclatureCubit>().loadRootTree();
         // } else
         if (state.status.isLoading) {
@@ -73,6 +73,8 @@ class NomenclatureView extends StatelessWidget {
                   _showSyncDialog(context);
                 } else if (value == 'clear_local') {
                   _confirmClearLocal(context);
+                } else if (value == 'info') {
+                  _showInfoDialog(context);
                 }
               },
               itemBuilder: (context) => const [
@@ -83,6 +85,16 @@ class NomenclatureView extends StatelessWidget {
                       Icon(Icons.refresh, color: Colors.orange),
                       SizedBox(width: 8),
                       Text('Перестворити базу'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'info',
+                  child: Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('Інформація'),
                     ],
                   ),
                 ),
@@ -164,6 +176,23 @@ class NomenclatureView extends StatelessWidget {
         //     ),
         //   ],
         // ),
+      ),
+    );
+  }
+
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Інформація'),
+
+        content: const Text('Інформація про номенклатуру'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Закрити'),
+          ),
+        ],
       ),
     );
   }

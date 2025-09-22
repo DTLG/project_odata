@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/injection/injection_container.dart';
-import '../../../nomenclature/ui/cubit/nomenclature_cubit.dart';
-import '../../../nomenclature/ui/cubit/nomenclature_state.dart';
+import '../../../nomenclature/presentation/cubit/nomenclature_cubit.dart';
+import '../../../nomenclature/presentation/cubit/nomenclature_state.dart';
 import '../../../kontragenty/presentation/cubit/kontragent_cubit.dart';
 import '../../../customer_order/presentation/cubit/customer_order_cubit.dart';
 import 'package:project_odata/objectbox.dart';
