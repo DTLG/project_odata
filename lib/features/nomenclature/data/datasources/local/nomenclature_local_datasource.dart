@@ -3,6 +3,7 @@ import '../../models/nomenclature_model.dart';
 /// Абстрактний інтерфейс для локального джерела даних номенклатури
 abstract class NomenclatureLocalDatasource {
   Future<List<NomenclatureModel>> getAllNomenclature();
+  Future<List<NomenclatureModel>> getRootFolders();
   Future<NomenclatureModel?> getNomenclatureByGuid(String guid);
   Future<List<NomenclatureModel>?> getNomenclatureByArticle(String article);
   Future<NomenclatureModel?> getNomenclatureByBarcode(String barcode);

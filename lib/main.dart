@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:project_odata/core/config/supabase_config.dart';
 
@@ -9,8 +10,11 @@ import 'core/services/realtime_logger.dart';
 import 'core/injection/injection_container.dart';
 import 'core/theme/theme_controller.dart';
 
+String appVersion = '';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PackageInfo packageInfo = await PackageInfo.fromPlatform();
+  appVersion = packageInfo.version;
   try {
     // Ensure latest Supabase config (url/key/schema) is loaded before init
     await SupabaseConfig.loadFromPrefs();

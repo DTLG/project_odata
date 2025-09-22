@@ -56,7 +56,7 @@ class ObjectBox {
           ]),
         )
         .order(NomenclatureObx_.isFolder, flags: Order.descending)
-        .order(NomenclatureObx_.name)
+        // .order(NomenclatureObx_.name)
         .build();
     try {
       return q.find();
@@ -121,6 +121,27 @@ class ObjectBox {
         .order(NomenclatureObx_.isFolder, flags: Order.descending)
         .order(NomenclatureObx_.name)
         .build();
+    try {
+      return q.find();
+    } finally {
+      q.close();
+    }
+  }
+
+  // Paged children query to enable incremental loading
+  List<NomenclatureObx> getChildrenNomenclaturePaged(
+    String parentGuid, {
+    int offset = 0,
+    int limit = 200,
+  }) {
+    final q =
+        nomenclatureBox
+            .query(NomenclatureObx_.parentGuid.equals(parentGuid))
+            .order(NomenclatureObx_.isFolder, flags: Order.descending)
+            .order(NomenclatureObx_.name)
+            .build()
+          ..offset = offset
+          ..limit = limit;
     try {
       return q.find();
     } finally {

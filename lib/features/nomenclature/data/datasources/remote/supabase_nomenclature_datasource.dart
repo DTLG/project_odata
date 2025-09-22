@@ -91,7 +91,7 @@ class SupabaseNomenclatureDatasourceImpl
           } else if (idValue is num) {
             lastId = idValue.toInt();
           }
-          allRecords.add(row as Map<String, dynamic>);
+          allRecords.add(row);
         }
 
         if (response.length < pageSize) break; // останній пакет
@@ -144,8 +144,6 @@ class SupabaseNomenclatureDatasourceImpl
     Function(String message, int current, int total)? onProgress,
   }) async {
     try {
-      print('Starting nomenclature sync...');
-
       // Отримуємо загальну кількість записів
 
       final response = await _schemaClient
@@ -157,42 +155,43 @@ class SupabaseNomenclatureDatasourceImpl
       // .select('*',  head: true, count: CountOption.exact);
 
       final totalCount = response.count; // тут буде кількість рядків
-      print('Total rows: $totalCount');
-      // Fallback if count fails
 
       const int pageSize = 1000;
       int lastId = 0;
       int page = 1;
       int totalLoaded = 0;
 
-      print(
-        'Initial parameters: pageSize=$pageSize, lastId=$lastId, page=$page',
-      );
       onProgress?.call('Початок завантаження...', 0, totalCount);
 
+      // Буферизація моделей для зменшення кількості записів у БД
+      const int bufferTargetSize = 5000; // 5k-10k оптимально; почнемо з 5k
+      final List<NomenclatureModel> buffer = <NomenclatureModel>[];
+
+      Future<void> flushBuffer() async {
+        if (buffer.isEmpty) return;
+        await local.insertNomenclature(List<NomenclatureModel>.from(buffer));
+
+        buffer.clear();
+      }
+
       while (true) {
-        print('Starting page $page (lastId > $lastId)');
         // onProgress?.call(
         //   'Завантаження пакету $page (id > $lastId)...',
         //   totalLoaded,
         //   totalCount,
         // );
 
-        print('Fetching data from Supabase...');
         final response = await _schemaClient
-            .from(_tableName)
-            .select('*')
+            .from('nomenklatura_with_data')
+            .select()
             .gt('id', lastId)
             .order('id', ascending: true)
             .limit(pageSize);
 
         if (response.isEmpty) {
-          print('No more records found, breaking loop');
           break;
         }
 
-        print('Processing ${response.length} records from response');
-        // оновлюємо lastId
         for (final row in response) {
           final idValue = row['id'];
           if (idValue is int) {
@@ -201,55 +200,15 @@ class SupabaseNomenclatureDatasourceImpl
             lastId = idValue.toInt();
           }
         }
-        print('Updated lastId to $lastId');
 
-        // збираємо guids для цього пакету
-        final guids = response
-            .map((e) => e['guid']?.toString() ?? '')
-            .where((g) => g.isNotEmpty)
+        final models = response
+            .map((json) => NomenclatureModel.fromJson(json))
             .toList();
-        print('Collected ${guids.length} GUIDs for processing');
 
-        // вантажимо штрихкоди + ціни тільки для цього пакету
-        print('Fetching barcodes and prices...');
-        final barcodesMap = await _fetchByGuids<BarcodeModel>(
-          table: _barcodesTable,
-          guids: guids,
-          mapper: (row) =>
-              BarcodeModel(nomGuid: row['nom_guid']!, barcode: row['barcode']!),
-        );
-        final pricesMap = await _fetchByGuids<PriceModel>(
-          table: _pricesTable,
-          guids: guids,
-          mapper: (row) => PriceModel(
-            nomGuid: row['nom_guid']!,
-            price: (row['price'] as num).toDouble(),
-          ),
-        );
-        print(
-          'Fetched ${barcodesMap.length} barcodes and ${pricesMap.length} prices',
-        );
-
-        // конвертація в ізоляті
-        print('Starting compute isolation for model conversion...');
-        final models = await compute((params) {
-          final data = params[0] as List<Map<String, dynamic>>;
-          final barcodes = params[1] as Map<String, List<BarcodeModel>>;
-          final prices = params[2] as Map<String, List<PriceModel>>;
-
-          return data.map<NomenclatureModel>((json) {
-            final model = NomenclatureModel.fromJson(json);
-            model.barcodes = barcodes[model.guid] ?? const <BarcodeModel>[];
-            model.prices = prices[model.guid] ?? const <PriceModel>[];
-            return model;
-          }).toList();
-        }, [response.cast<Map<String, dynamic>>(), barcodesMap, pricesMap]);
-        print('Converted ${models.length} models in compute isolation');
-
-        // збереження у ObjectBox (через local datasource)
-        print('Saving models to ObjectBox...');
-        await local.insertNomenclature(models);
-        print('Saved ${models.length} models to ObjectBox');
+        buffer.addAll(models);
+        if (buffer.length >= bufferTargetSize) {
+          await flushBuffer();
+        }
 
         totalLoaded += models.length;
 
@@ -260,21 +219,16 @@ class SupabaseNomenclatureDatasourceImpl
         );
 
         if (response.length < pageSize) {
-          print('Received less than pageSize records, breaking loop');
           break; // останній пакет
         }
         page++;
-
-        if (page % 10 == 0) {
-          print('Reached page multiple of 10, adding delay');
-          await Future.delayed(const Duration(milliseconds: 200));
-        }
       }
 
-      print('Sync completed successfully. Total records: $totalLoaded');
+      // фінальний флеш
+      await flushBuffer();
+
       onProgress?.call('Завершено!', totalLoaded, totalLoaded);
     } catch (e) {
-      print('Error during sync: $e');
       throw Exception('Помилка при синхронізації номенклатури: $e');
     }
   }
@@ -307,7 +261,7 @@ class SupabaseNomenclatureDatasourceImpl
             .limit(pageSize);
 
         if (response.isEmpty) break;
-        allRecords.addAll(response.cast<Map<String, dynamic>>());
+        allRecords.addAll(response);
 
         for (final row in response) {
           final idValue = row['id'];
@@ -316,7 +270,7 @@ class SupabaseNomenclatureDatasourceImpl
           } else if (idValue is num) {
             lastId = idValue.toInt();
           }
-          allRecords.add(row as Map<String, dynamic>);
+          allRecords.add(row);
         }
 
         if (response.length == pageSize &&

@@ -4,4 +4,10 @@ import '../models/kontragent_model.dart';
 abstract class KontragentRemoteDataSource {
   /// Get all kontragenty from remote API
   Future<List<KontragentModel>> getAllKontragenty();
+
+  /// Get kontragenty chunk from remote API
+  Future<List<KontragentModel>> getKontragentyChunk({
+    required int lastId,
+    int limit = 1000,
+  });
 }

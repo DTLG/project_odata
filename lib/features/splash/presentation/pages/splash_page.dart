@@ -15,7 +15,38 @@ class SplashPage extends StatelessWidget {
       child: BlocConsumer<SplashCubit, SplashState>(
         listener: (context, state) async {
           if (state.status == SplashStatus.success) {
-            AppRouter.navigateToAndReplace(context, AppRouter.home);
+            if (state.needsUpdate) {
+              final proceed = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Доступна нова версія'),
+                  content: const Text(
+                    'Доступне оновлення застосунку. Рекомендуємо оновити зараз. Продовжити без оновлення?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Оновити'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Продовжити'),
+                    ),
+                  ],
+                ),
+              );
+              if (proceed != true) {
+                return; // stay on splash (or navigate to store page if needed)
+              }
+            }
+            // Decide route based on saved agent
+            // If set, go home; else go to agent selection
+            if (state.hasAgent) {
+              AppRouter.navigateToAndReplace(context, AppRouter.home);
+            } else {
+              AppRouter.navigateTo(context, AppRouter.agentSelection);
+            }
           } else if (state.status == SplashStatus.error) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Помилка: ${state.message}')),

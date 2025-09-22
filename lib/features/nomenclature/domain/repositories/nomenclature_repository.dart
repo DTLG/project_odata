@@ -10,6 +10,9 @@ abstract class NomenclatureRepository {
   /// Отримати номенклатуру з локальної бази даних
   Future<Either<Failure, List<NomenclatureEntity>>> getLocalNomenclature();
 
+  /// Отримати корневих папок номенклатури
+  Future<Either<Failure, List<NomenclatureEntity>>> getRootFolders();
+
   /// Пошук номенклатури за назвою в локальній базі
   Future<Either<Failure, List<NomenclatureEntity>>> searchNomenclatureByName(
     String name,

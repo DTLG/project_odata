@@ -318,7 +318,15 @@ class _RepairRequestPageState extends State<RepairRequestPage>
         ),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Заявка на ремонт'),
+          title: BlocBuilder<RepairRequestCubit, RepairRequestState>(
+            builder: (context, state) {
+              final customerName = state.customer?.name ?? '';
+              final String title = customerName.isEmpty
+                  ? 'Заявка на ремонт'
+                  : 'Заявка: ${_shortCustomerName(customerName)}';
+              return Text(title, overflow: TextOverflow.ellipsis, maxLines: 1);
+            },
+          ),
           bottom: TabBar(
             controller: _tabs,
             indicatorColor: AppTheme.accentColor,
@@ -443,6 +451,12 @@ class _RepairRequestPageState extends State<RepairRequestPage>
       ),
     );
   }
+}
+
+String _shortCustomerName(String name, {int max = 22, String ellipsis = '…'}) {
+  final trimmed = name.trim();
+  if (trimmed.length <= max) return trimmed;
+  return trimmed.substring(0, max) + ellipsis;
 }
 
 // Keeps tab subtree alive to prevent rebuild jank when switching tabs

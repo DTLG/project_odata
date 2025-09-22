@@ -122,28 +122,22 @@ class NomenclatureModel {
       barcodes:
           (json['barcodes'] as List?)
               ?.map(
-                (e) => e is Map<String, dynamic>
-                    ? BarcodeModel(
-                        nomGuid: json['guid']?.toString() ?? '',
-                        barcode: (e['barcode']?.toString() ?? ''),
-                      )
-                    : null,
+                (e) => BarcodeModel(
+                  nomGuid: json['guid']?.toString() ?? '',
+                  barcode: e.toString(),
+                ),
               )
-              .whereType<BarcodeModel>()
               .toList() ??
           const <BarcodeModel>[],
       prices:
           (json['prices'] as List?)
               ?.map(
-                (e) => e is Map<String, dynamic>
-                    ? PriceModel(
-                        nomGuid: json['guid']?.toString() ?? '',
-                        price: ((e['price'] as num?)?.toDouble() ?? 0.0),
-                        createdAt: null,
-                      )
-                    : null,
+                (e) => PriceModel(
+                  nomGuid: json['guid']?.toString() ?? '',
+                  price: (e as num?)?.toDouble() ?? 0.0,
+                  createdAt: null,
+                ),
               )
-              .whereType<PriceModel>()
               .toList() ??
           const <PriceModel>[],
     );

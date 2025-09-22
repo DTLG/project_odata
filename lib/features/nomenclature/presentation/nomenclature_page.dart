@@ -8,7 +8,7 @@ import 'widgets/nomenclature_item_widget.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
 import '../../common/widgets/search_mode_switch.dart';
-import '../../../core/objectbox/objectbox_entities.dart';
+// import removed: objectbox entities not used in UI anymore
 
 /// Сторінка номенклатури
 class NomenclaturePage extends StatelessWidget {
@@ -65,6 +65,11 @@ class NomenclatureView extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Номенклатура'),
           actions: [
+            IconButton(
+              tooltip: 'Назад до папок',
+              icon: const Icon(Icons.drive_file_move_rtl),
+              onPressed: () => context.read<NomenclatureCubit>().loadRootTree(),
+            ),
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'recreate') {
@@ -611,127 +616,80 @@ class _NomenclatureTree extends StatelessWidget {
     return ListView.builder(
       itemCount: roots.length,
       itemBuilder: (context, index) {
-        return _FolderNode(
-          entity: roots[index],
-          cubit: cubit,
-          toEntity: _toEntity,
-        );
+        return _FolderNode(entity: roots[index], cubit: cubit);
       },
     );
   }
 }
 
-NomenclatureEntity _toEntity(NomenclatureObx k) => NomenclatureEntity(
-  guid: k.guid,
-  name: k.name,
-  nameLower: k.nameLower,
-  isFolder: k.isFolder,
-  parentGuid: k.parentGuid,
-  description: '',
-  createdAt: k.createdAtMs > 0
-      ? DateTime.fromMillisecondsSinceEpoch(k.createdAtMs)
-      : DateTime.now(),
-  price: k.price,
-  article: k.article,
-  unitName: k.unitName,
-  unitGuid: k.unitGuid,
-  id: k.id,
-  // use in-memory caches from cubit instead of querying ObjectBox in build
-  barcodes: _barcodesFromCache(k.guid),
-  prices: _pricesFromCache(k.guid),
-);
-List<BarcodeEntity> _barcodesFromCache(String nomGuid) {
-  final cubit = sl<NomenclatureCubit>();
-  return cubit.getBarcodesFor(nomGuid);
-}
-
-List<PriceEntity> _pricesFromCache(String nomGuid) {
-  final cubit = sl<NomenclatureCubit>();
-  return cubit.getPricesFor(nomGuid);
-}
+// Mapping helpers not needed when working directly with domain entities
 
 class _FolderNode extends StatelessWidget {
-  const _FolderNode({
-    required this.entity,
-    required this.cubit,
-    required this.toEntity,
-  });
-  final NomenclatureObx entity;
+  const _FolderNode({required this.entity, required this.cubit});
+  final NomenclatureEntity entity;
   final NomenclatureCubit cubit;
-  final NomenclatureEntity Function(NomenclatureObx) toEntity;
 
   @override
   Widget build(BuildContext context) {
     if (entity.isFolder) {
-      return _LazyExpansionTile(
-        title: Text(entity.name),
-        leading: const Icon(Icons.folder),
-        loadChildren: () => cubit.loadChildren(entity.guid),
+      return _BlocExpansionFolder(
+        entity: entity,
+        cubit: cubit,
         itemBuilder: (context, child) {
           return child.isFolder
-              ? _FolderNode(cubit: cubit, entity: child, toEntity: toEntity)
-              : NomenclatureItemWidget(nomenclature: toEntity(child));
+              ? _FolderNode(cubit: cubit, entity: child)
+              : NomenclatureItemWidget(nomenclature: child);
         },
       );
     }
-    return NomenclatureItemWidget(nomenclature: toEntity(entity));
+    return NomenclatureItemWidget(nomenclature: entity);
   }
 }
 
-class _LazyExpansionTile extends StatefulWidget {
-  const _LazyExpansionTile({
-    required this.title,
-    required this.leading,
-    required this.loadChildren,
+class _BlocExpansionFolder extends StatelessWidget {
+  const _BlocExpansionFolder({
+    required this.entity,
+    required this.cubit,
     required this.itemBuilder,
   });
-  final Widget title;
-  final Widget leading;
-  final Future<List<NomenclatureObx>> Function() loadChildren;
-  final Widget Function(BuildContext, NomenclatureObx) itemBuilder;
-
-  @override
-  State<_LazyExpansionTile> createState() => _LazyExpansionTileState();
-}
-
-class _LazyExpansionTileState extends State<_LazyExpansionTile> {
-  bool _expanded = false;
-  Future<List<NomenclatureObx>>? _future;
+  final NomenclatureEntity entity;
+  final NomenclatureCubit cubit;
+  final Widget Function(BuildContext, NomenclatureEntity) itemBuilder;
 
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
-      leading: widget.leading,
-      title: widget.title,
+      leading: const Icon(Icons.folder),
+      title: Text(entity.name),
       onExpansionChanged: (v) {
-        setState(() => _expanded = v);
-        if (v && _future == null) {
-          _future = widget.loadChildren();
-        }
+        if (v) cubit.beginStreamChildren(entity.guid, pageSize: 100);
       },
-      children: _expanded
-          ? [
-              FutureBuilder<List<NomenclatureObx>>(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Padding(
-                      padding: EdgeInsets.all(12.0),
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-                  final list = snapshot.data!;
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const ClampingScrollPhysics(),
-                    itemCount: list.length,
-                    itemBuilder: (context, index) =>
-                        widget.itemBuilder(context, list[index]),
-                  );
-                },
-              ),
-            ]
-          : const <Widget>[],
+      children: [
+        BlocBuilder<NomenclatureCubit, NomenclatureState>(
+          buildWhen: (prev, curr) =>
+              prev.childrenByParentGuid[entity.guid] !=
+              curr.childrenByParentGuid[entity.guid],
+          builder: (context, state) {
+            final children =
+                state.childrenByParentGuid[entity.guid] ??
+                const <NomenclatureEntity>[];
+            if (children.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(12.0),
+                child: CircularProgressIndicator(),
+              );
+            }
+            return ListView.builder(
+              shrinkWrap: true,
+              addAutomaticKeepAlives: true,
+              physics: const ClampingScrollPhysics(),
+              itemCount: children.length,
+              itemBuilder: (context, index) =>
+                  itemBuilder(context, children[index]),
+            );
+          },
+        ),
+      ],
     );
   }
 }

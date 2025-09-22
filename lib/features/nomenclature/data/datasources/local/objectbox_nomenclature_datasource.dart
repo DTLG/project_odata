@@ -24,6 +24,9 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
     _barcodes = _store.box<BarcodeObx>();
     _prices = _store.box<PriceObx>();
     _initialized = true;
+    print(
+      'OBX dir: ${_store.directoryPath} storeHash: ${identityHashCode(_store)}',
+    );
   }
 
   NomenclatureModel _fromObx(NomenclatureObx n) {
@@ -95,6 +98,24 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
       'barcodes_count': _barcodes.count(),
       'prices_count': _prices.count(),
     };
+  }
+
+  @override
+  Future<List<NomenclatureModel>> getRootFolders() async {
+    await _ensure();
+    final q = _box
+        .query(
+          NomenclatureObx_.parentGuid.oneOf([
+            '00000000-0000-0000-0000-000000000000',
+            '',
+          ]),
+        )
+        .order(NomenclatureObx_.isFolder, flags: Order.descending)
+        .order(NomenclatureObx_.name)
+        .build();
+    final res = q.find();
+    q.close();
+    return res.map(_fromObx).toList();
   }
 
   @override
@@ -193,59 +214,19 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
   @override
   Future<void> insertNomenclature(List<NomenclatureModel> nomenclatures) async {
     await _ensure();
-    print('Inserting ${nomenclatures.length} nomenclatures into ObjectBox...');
+    print(
+      'OBX dir: ${_store.directoryPath} storeHash: ${identityHashCode(_store)}',
+    );
+    if (nomenclatures.isEmpty) return;
 
-    final obxList = nomenclatures.map(_toObx).toList();
-    print('Mapped ${obxList.length} nomenclatures to ObjectBox entities');
+    _store.runInTransaction(TxMode.write, () {
+      final obxList = nomenclatures.map(_toObx).toList();
+      _box.putMany(obxList, mode: PutMode.put);
+    });
 
-    _box.putMany(obxList, mode: PutMode.insert);
-    print('Inserted nomenclatures into main box');
-
-    for (final n in nomenclatures) {
-      print('Processing relations for nomenclature ${n.guid}...');
-
-      // barcodes
-      final existingB = _barcodes
-          .query(BarcodeObx_.nomGuid.equals(n.guid))
-          .build();
-      final existingBarcodeIds = existingB.findIds();
-      print(
-        'Found ${existingBarcodeIds.length} existing barcodes for ${n.guid}',
-      );
-      _barcodes.removeMany(existingBarcodeIds);
-      existingB.close();
-
-      if (n.barcodes.isNotEmpty) {
-        final barcodeEntities = n.barcodes
-            .map((b) => BarcodeObx(nomGuid: n.guid, barcode: b.barcode))
-            .toList();
-        _barcodes.putMany(barcodeEntities);
-        print('Inserted ${barcodeEntities.length} new barcodes for ${n.guid}');
-      }
-
-      // prices
-      final existingP = _prices.query(PriceObx_.nomGuid.equals(n.guid)).build();
-      final existingPriceIds = existingP.findIds();
-      print('Found ${existingPriceIds.length} existing prices for ${n.guid}');
-      _prices.removeMany(existingPriceIds);
-      existingP.close();
-
-      if (n.prices.isNotEmpty) {
-        final priceEntities = n.prices
-            .map(
-              (p) => PriceObx(
-                nomGuid: n.guid,
-                price: p.price,
-                createdAtMs:
-                    (p.createdAt ?? DateTime.now()).millisecondsSinceEpoch,
-              ),
-            )
-            .toList();
-        _prices.putMany(priceEntities);
-        print('Inserted ${priceEntities.length} new prices for ${n.guid}');
-      }
-    }
-    print('Finished inserting all nomenclatures and their relations');
+    // Verification: print total records after batch insert
+    final total = _box.count();
+    print('✅ ObjectBox Nomenclature total count: $total');
   }
 
   @override

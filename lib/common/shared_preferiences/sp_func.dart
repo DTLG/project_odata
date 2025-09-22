@@ -64,3 +64,14 @@ Future<int> getPrinterDarkness() async {
 
   return darkness;
 }
+
+/// Selected agent helpers
+Future<String?> getSelectedAgentGuid() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('selectedAgentGuid');
+}
+
+Future<void> setSelectedAgentGuid(String guid) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('selectedAgentGuid', guid);
+}

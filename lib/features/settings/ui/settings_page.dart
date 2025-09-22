@@ -1,17 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/supabase_config.dart';
-import '../../../features/agents/data/datasources/local/sqlite_agents_datasource.dart';
-import '../../../features/agents/data/datasources/remote/supabase_agents_datasource.dart';
-import '../../../features/agents/data/datasources/local/objectbox_agents_datasource.dart';
 import '../cubit/settings_cubit.dart';
 import '../models/price_type.dart';
 import '../../../core/theme/theme_controller.dart';
-import '../../../features/agents/data/repositories/agents_repository_impl.dart';
 import '../../../features/agents/presentation/pages/agent_selection_page.dart';
+import '../../../main.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -42,7 +38,10 @@ class _SettingsViewState extends State<SettingsView> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      appBar: AppBar(title: const Text('Налаштування')),
+      appBar: AppBar(
+        title: const Text('Налаштування'),
+        actions: [Text("v$appVersion")],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: BlocBuilder<SettingsCubit, SettingsState>(

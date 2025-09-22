@@ -99,6 +99,12 @@ class _RepairDetailsTabState extends State<RepairDetailsTab> {
         builder: (context, state) {
           return ListView(
             children: [
+              _NomenclatureNameLine(
+                guid: state.nomenclatureGuid,
+                valueStyle: Theme.of(context).textTheme.headlineSmall!.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               // const SizedBox(height: 6),
               //
               Builder(
@@ -200,6 +206,31 @@ class _RepairDetailsTabState extends State<RepairDetailsTab> {
           );
         },
       ),
+    );
+  }
+}
+
+class _NomenclatureNameLine extends StatelessWidget {
+  final String guid;
+  final TextStyle valueStyle;
+  const _NomenclatureNameLine({required this.guid, required this.valueStyle});
+
+  @override
+  Widget build(BuildContext context) {
+    if (guid.isEmpty) return Text('-', style: valueStyle);
+    final ds = sl<NomenclatureLocalDatasource>();
+    return FutureBuilder(
+      future: ds.getNomenclatureByGuid(guid),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 16,
+            child: LinearProgressIndicator(minHeight: 2),
+          );
+        }
+        final name = snapshot.data?.name ?? '-';
+        return Text(name, style: valueStyle);
+      },
     );
   }
 }

@@ -17,61 +17,47 @@ class KontragentRepositoryImpl implements KontragentRepository {
   });
 
   @override
-  Future<Either<Failure, List<KontragentEntity>>> syncKontragenty() async {
+  Future<Either<Failure, List<KontragentEntity>>> syncKontragenty({
+    Function(String message, int current, int total)? onProgress,
+  }) async {
     try {
       print('🔄 Починаємо синхронізацію контрагентів...');
+      const int pageSize = 1000;
+      int offset = 0;
+      int totalLoaded = 0;
+      final List<KontragentEntity> all = [];
 
-      // Get data from remote
-      print('📡 Отримуємо дані з віддаленого джерела...');
-      final remoteKontragenty = await remoteDataSource.getAllKontragenty();
-      print(
-        '📊 Отримано ${remoteKontragenty.length} контрагентів з віддаленого джерела',
-      );
-
-      // Debug: find and print duplicates by GUID
-      final Map<String, List<KontragentEntity>> byGuidAll = {};
-      for (final k in remoteKontragenty) {
-        final key = (k.guid).trim();
-        (byGuidAll[key] ??= []).add(k);
-      }
-      int dupGroups = 0;
-      int dupItems = 0;
-      byGuidAll.forEach((guid, list) {
-        if (guid.isEmpty) return;
-        if (list.length > 1) {
-          dupGroups++;
-          dupItems += list.length;
-          print('🔁 DUP GUID=$guid x${list.length}');
-          for (int i = 0; i < list.length; i++) {
-            final it = list[i];
-            print(
-              '   • [$i] name="${it.name}" parentGuid=${it.parentGuid} isFolder=${it.isFolder}',
-            );
-          }
-        }
-      });
-      if (dupGroups > 0) {
-        print(
-          '⚠️ Знайдено груп дублікатів: $dupGroups, елементів у них: $dupItems',
+      while (true) {
+        final chunk = await remoteDataSource.getKontragentyChunk(
+          lastId: offset,
+          limit: pageSize,
         );
-      } else {
-        print('✅ Дублікатів по GUID не знайдено');
+        // final chunk = await remoteDataSource.getAllKontragenty(
+        //   offset,
+        //   pageSize,
+        // );
+        if (chunk.isEmpty) break;
+
+        // Дедуплікація на рівні поточного чанку
+        final Map<String, KontragentEntity> byGuid = {
+          for (final k in chunk) k.guid.trim(): k,
+        };
+
+        // Збереження порціями (upsert)
+        await localDataSource.insertKontragenty(
+          byGuid.values.map((e) => KontragentModel.fromEntity(e)).toList(),
+        );
+
+        all.addAll(byGuid.values);
+        totalLoaded += byGuid.length;
+        offset += pageSize;
+
+        onProgress?.call('Завантажено $totalLoaded...', totalLoaded, 0);
+        print('📦 Завантажено $totalLoaded контрагентів...');
       }
 
-      // Deduplicate by GUID to avoid duplicates
-      final Map<String, KontragentEntity> byGuid = {
-        for (final k in remoteKontragenty) k.guid: k,
-      };
-
-      // Save to local storage (replace existing)
-      print('💾 Очищаємо та зберігаємо дані в локальне сховище...');
-      await localDataSource.clearAllData();
-      await localDataSource.insertKontragenty(
-        byGuid.values.map((e) => KontragentModel.fromEntity(e)).toList(),
-      );
       print('✅ Синхронізація завершена успішно');
-
-      return Right(remoteKontragenty);
+      return Right(all);
     } catch (e) {
       print('❌ Помилка синхронізації: $e');
       return Left(ServerFailure('Failed to sync kontragenty: ${e.toString()}'));

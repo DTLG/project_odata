@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/nomenclature_entity.dart';
-import '../../../../core/objectbox/objectbox_entities.dart';
+// import removed: not needed in state after switching to domain entities for tree
 import '../../../common/widgets/search_mode_switch.dart';
 
 /// Перелік можливих статусів стану
@@ -40,7 +40,7 @@ class NomenclatureState extends Equatable {
   final int totalCount;
 
   // Для treeLoaded
-  final List<NomenclatureObx> rootFolders;
+  final List<NomenclatureEntity> rootFolders;
   final Map<String, List<NomenclatureEntity>> childrenByParentGuid;
 
   // Для пошуку
@@ -87,7 +87,7 @@ class NomenclatureState extends Equatable {
     SearchParam? searchBy,
     List<NomenclatureEntity>? nomenclatures,
     int? totalCount,
-    List<NomenclatureObx>? rootFolders,
+    List<NomenclatureEntity>? rootFolders,
     Map<String, List<NomenclatureEntity>>? childrenByParentGuid,
     List<NomenclatureEntity>? searchResults,
     String? searchQuery,

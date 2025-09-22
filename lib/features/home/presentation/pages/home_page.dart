@@ -45,6 +45,7 @@ class _HomePageState extends State<HomePage> {
     return BlocProvider(
       create: (_) => SettingsCubit()..loadHomeIcons(),
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: _isDarkMode ? AppTheme.darkTheme : AppTheme.lightTheme,
         onGenerateRoute: AppRouter.generateRoute,
         home: Scaffold(
@@ -58,7 +59,8 @@ class _HomePageState extends State<HomePage> {
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    'Project OData',
+                    'Virok Service',
+                    // 'Project OData',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onPrimary,
                       fontWeight: FontWeight.bold,
@@ -83,6 +85,8 @@ class _HomePageState extends State<HomePage> {
                       return IconButton(
                         icon: const Icon(Icons.settings),
                         onPressed: () async {
+                          final ok = await _askSettingsPin(context);
+                          if (!ok) return;
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -91,12 +95,6 @@ class _HomePageState extends State<HomePage> {
                           ).then((value) {
                             context.read<SettingsCubit>().loadHomeIcons();
                           });
-                          // await AppRouter.navigateTo(
-                          //   context,
-                          //   AppRouter.settingsPage,
-                          // );
-                          // context.read<SettingsCubit>().loadHomeIcons();
-                          // if (!mounted) return;
                         },
                         tooltip: 'Налаштування',
                       );
@@ -222,6 +220,47 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  Future<bool> _askSettingsPin(BuildContext context) async {
+    final controller = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Введіть PIN'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'PIN'),
+          keyboardType: TextInputType.number,
+          obscureText: true,
+          autofocus: true,
+          maxLength: 4,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Скасувати'),
+          ),
+          TextButton(
+            onPressed: () {
+              final isOk = controller.text.trim() == '2025';
+              if (isOk) {
+                Navigator.of(ctx).pop(true);
+              } else {
+                Navigator.of(ctx).pop(false);
+                // Show error and keep dialog open
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Неправильний PIN')),
+                );
+              }
+            },
+            child: const Text('Підтвердити'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Widget _buildQuickActionButton({

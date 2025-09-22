@@ -10,6 +10,7 @@ import '../../../agents/data/datasources/local/objectbox_agents_datasource.dart'
 import '../../../agents/data/datasources/remote/supabase_agents_datasource.dart';
 import '../../../agents/data/repositories/agents_repository_impl.dart';
 import '../../../repair_request/data/datasources/remote/supabase_types_of_repair_datasource.dart';
+import '../../../../core/usecases/usecase.dart';
 
 class BootstrapApp {
   Future<void> call(Function(String, int, int) updateProgress) async {
@@ -26,6 +27,9 @@ class BootstrapApp {
     updateProgress('Підготовка довідників...', currentStep, totalSteps);
 
     final store = sl<ObjectBox>().getStore();
+    print(
+      'Bootstrap OBX dir: ${store.directoryPath} storeHash: ${identityHashCode(store)}',
+    );
     final agentBox = store.box<AgentObx>();
     final typesBox = store.box<TypeOfRepairObx>();
     final nomenBox = store.box<NomenclatureObx>();
@@ -65,6 +69,13 @@ class BootstrapApp {
       });
 
       await nomenCubit.syncNomenclature();
+      final nomenEither = await nomenCubit.getNomenclatureCountUseCase(
+        const NoParams(),
+      );
+      nomenEither.fold(
+        (f) => print('Номенклатура синхронізована: error: ${f.message}'),
+        (count) => print('Номенклатура синхронізована: $count'),
+      );
       await streamSubscription.cancel();
 
       currentStep += stepSize;

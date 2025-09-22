@@ -30,7 +30,10 @@ import '../../features/kontragenty/domain/usecases/sync_kontragenty_usecase.dart
 import '../../features/kontragenty/domain/usecases/get_local_kontragenty_usecase.dart';
 import '../../features/kontragenty/domain/usecases/search_kontragenty_by_name_usecase.dart';
 import '../../features/kontragenty/domain/usecases/search_kontragenty_by_edrpou_usecase.dart';
-import '../../features/kontragenty/domain/usecases/get_root_folders_usecase.dart';
+import '../../features/kontragenty/domain/usecases/get_root_folders_usecase.dart'
+    as kontr;
+import '../../features/nomenclature/domain/usecases/get_root_folders_usecase.dart'
+    as nom;
 import '../../features/kontragenty/domain/usecases/get_children_usecase.dart';
 import '../../features/kontragenty/domain/usecases/get_kontragenty_count_usecase.dart';
 import '../../features/kontragenty/domain/usecases/clear_local_data_usecase.dart';
@@ -194,7 +197,13 @@ void _initUseCases() {
   sl.registerLazySingleton(() => GetLocalKontragentyUseCase(sl()));
   sl.registerLazySingleton(() => SearchKontragentyByNameUseCase(sl()));
   sl.registerLazySingleton(() => SearchKontragentyByEdrpouUseCase(sl()));
-  sl.registerLazySingleton(() => GetRootFoldersUseCase(sl()));
+  sl.registerLazySingleton<kontr.GetRootFoldersUseCase>(
+    () => kontr.GetRootFoldersUseCase(sl()),
+  );
+  // Nomenclature root folders use case
+  sl.registerLazySingleton<nom.GetRootFoldersUseCase>(
+    () => nom.GetRootFoldersUseCase(sl()),
+  );
   sl.registerLazySingleton(() => GetChildrenUseCase(sl()));
   sl.registerLazySingleton(() => GetKontragentyCountUseCase(sl()));
   sl.registerLazySingleton(() => ClearLocalDataUseCase(sl()));
@@ -214,6 +223,7 @@ void _initCubits() {
       syncNomenclatureUseCase: sl(),
       getLocalNomenclatureUseCase: sl(),
       searchNomenclatureByNameUseCase: sl(),
+      getRootFoldersUseCase: sl<nom.GetRootFoldersUseCase>(),
       searchNomenclatureByArticleUseCase: sl(),
       getNomenclatureCountUseCase: sl(),
       searchNomenclatureByBarcodeUseCase: sl(),
@@ -227,7 +237,7 @@ void _initCubits() {
       getLocalKontragentyUseCase: sl(),
       searchKontragentyByNameUseCase: sl(),
       searchKontragentyByEdrpouUseCase: sl(),
-      getRootFoldersUseCase: sl(),
+      getRootFoldersUseCase: sl<kontr.GetRootFoldersUseCase>(),
       getChildrenUseCase: sl(),
       getKontragentyCountUseCase: sl(),
       clearLocalDataUseCase: sl(),

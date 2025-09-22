@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/routes/app_router.dart';
 import '../../data/repositories/agents_repository_impl.dart';
 import '../../../../core/injection/injection_container.dart';
 import '../cubit/agents_cubit.dart';
@@ -19,7 +20,7 @@ class _AgentSelectionPageState extends State<AgentSelectionPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('agent_guid', guid);
     await prefs.setString('agent_name', name);
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) AppRouter.navigateToAndReplace(context, AppRouter.home);
   }
 
   @override

@@ -25,11 +25,11 @@ class SettingsCubit extends Cubit<SettingsState> {
     final prefs = await SharedPreferences.getInstance();
     emit(
       state.copyWith(
-        showLabelPrint: prefs.getBool('home_show_label_print') ?? true,
-        showNomenclature: prefs.getBool('home_show_nomenclature') ?? true,
-        showCustomerOrders: prefs.getBool('home_show_customer_orders') ?? true,
-        showInventoryCheck: prefs.getBool('home_show_inventory_check') ?? true,
-        showKontragenty: prefs.getBool('home_show_kontragenty') ?? true,
+        showLabelPrint: prefs.getBool('home_show_label_print') ?? false,
+        showNomenclature: prefs.getBool('home_show_nomenclature') ?? false,
+        showCustomerOrders: prefs.getBool('home_show_customer_orders') ?? false,
+        showInventoryCheck: prefs.getBool('home_show_inventory_check') ?? false,
+        showKontragenty: prefs.getBool('home_show_kontragenty') ?? false,
         showRepairRequests: prefs.getBool('home_show_repair_requests') ?? true,
       ),
     );

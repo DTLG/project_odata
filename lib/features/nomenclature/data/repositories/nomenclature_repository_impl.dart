@@ -47,6 +47,20 @@ class NomenclatureRepositoryImpl implements NomenclatureRepository {
   }
 
   @override
+  Future<Either<Failure, List<NomenclatureEntity>>> getRootFolders() async {
+    try {
+      final rootFolders = await _localDatasource.getRootFolders();
+      final entities = rootFolders.map((model) => model.toEntity()).toList();
+
+      return Right(entities);
+    } catch (e) {
+      return Left(
+        CacheFailure('Помилка отримання корневих папок номенклатури: $e'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, List<NomenclatureEntity>>>
   getLocalNomenclature() async {
     try {

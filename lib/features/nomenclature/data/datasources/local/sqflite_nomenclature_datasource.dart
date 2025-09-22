@@ -258,6 +258,25 @@ class SqliteNomenclatureDatasourceImpl implements NomenclatureLocalDatasource {
   }
 
   @override
+  Future<List<NomenclatureModel>> getRootFolders() async {
+    try {
+      await _ensureSchemaLoaded();
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        _tableName,
+        where: 'parentGuid IN (?, ?)',
+        whereArgs: ['00000000-0000-0000-0000-000000000000', ''],
+        orderBy: 'isFolder DESC, name',
+      );
+      return maps.map((map) => _mapToModel(map)).toList();
+    } catch (e) {
+      throw Exception(
+        'Помилка отримання корневих папок номенклатури з SQLite: $e',
+      );
+    }
+  }
+
+  @override
   Future<List<NomenclatureModel>> getAllNomenclature() async {
     try {
       await _ensureSchemaLoaded();

@@ -56,4 +56,36 @@ class SupabaseKontragentDatasourceImpl implements KontragentRemoteDataSource {
       throw Exception('Failed to fetch kontragenty from Supabase: $e');
     }
   }
+
+  Future<List<KontragentModel>> getKontragentyChunk({
+    required int lastId,
+    int limit = 1000,
+  }) async {
+    try {
+      print('📦 Завантажуємо пакет контрагентів (id > $lastId, limit: $limit)');
+
+      final response = await _supabaseClient
+          .schema(SupabaseConfig.schema)
+          .from('kontragenty')
+          .select('*')
+          .gt('id', lastId)
+          .order('id', ascending: true)
+          .limit(limit);
+
+      final rows = response as List;
+      if (rows.isEmpty) return [];
+
+      final models = <KontragentModel>[];
+      for (final row in rows) {
+        final map = row as Map<String, dynamic>;
+        models.add(KontragentModel.fromJson(map));
+      }
+
+      print('📊 Отримано ${models.length} записів у пакеті');
+      return models;
+    } catch (e) {
+      print('❌ Помилка завантаження пакету контрагентів: $e');
+      throw Exception('Failed to fetch kontragenty chunk: $e');
+    }
+  }
 }
