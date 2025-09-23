@@ -34,6 +34,9 @@ class NomenclatureObx {
 
   int createdAtMs;
 
+  String barcodes;
+  String prices;
+
   NomenclatureObx({
     this.obxId = 0,
     required this.guid, // робимо обов’язковим
@@ -48,6 +51,8 @@ class NomenclatureObx {
     this.unitGuid = '',
     this.description = '',
     this.createdAtMs = 0,
+    this.barcodes = '',
+    this.prices = '',
   });
 }
 

@@ -68,9 +68,9 @@ extension RepairStatusX on RepairStatus {
         return 'Видано';
       case RepairStatus.notRepairable:
         return 'Не підлягає ремонту';
-      case RepairStatus.ready:
-        return 'Очікує погодження';
       case RepairStatus.awaitingApproval:
+        return 'Очікує погодження';
+      case RepairStatus.ready:
         return 'Готово';
       case RepairStatus.accepted:
         return 'Прийнята';
@@ -96,9 +96,9 @@ extension RepairStatusX on RepairStatus {
       case RepairStatus.notRepairable:
         return Colors.red;
       case RepairStatus.ready:
-        return Colors.orange;
-      case RepairStatus.awaitingApproval:
         return Colors.lightGreen;
+      case RepairStatus.awaitingApproval:
+        return Colors.orange;
       case RepairStatus.accepted:
         return Colors.indigo;
       case RepairStatus.unknown:

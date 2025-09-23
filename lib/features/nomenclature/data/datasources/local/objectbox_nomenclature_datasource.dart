@@ -62,6 +62,8 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
       unitGuid: m.unitGuid,
       description: m.description,
       createdAtMs: m.createdAt.millisecondsSinceEpoch,
+      barcodes: m.barcodes.map((e) => e.barcode).join(','),
+      prices: m.prices.map((e) => e.price).join(','),
     );
   }
 
@@ -220,8 +222,43 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
     if (nomenclatures.isEmpty) return;
 
     _store.runInTransaction(TxMode.write, () {
+      // Upsert base nomenclature records
       final obxList = nomenclatures.map(_toObx).toList();
       _box.putMany(obxList, mode: PutMode.put);
+
+      // Upsert related barcodes and prices per nomenclature
+      // for (final m in nomenclatures) {
+      //   final guid = m.guid;
+      //   // Barcodes: replace existing for this nom
+      //   final qb = _barcodes.query(BarcodeObx_.nomGuid.equals(guid)).build();
+      //   _barcodes.removeMany(qb.findIds());
+      //   qb.close();
+      //   if (m.barcodes.isNotEmpty) {
+      //     final toPut = m.barcodes
+      //         .map((b) => BarcodeObx(nomGuid: guid, barcode: b.barcode))
+      //         .toList();
+      //     _barcodes.putMany(toPut, mode: PutMode.put);
+      //   }
+
+      //   // Prices: replace existing for this nom
+      //   final qp = _prices.query(PriceObx_.nomGuid.equals(guid)).build();
+      //   _prices.removeMany(qp.findIds());
+      //   qp.close();
+      //   if (m.prices.isNotEmpty) {
+      //     final toPut = m.prices
+      //         .map(
+      //           (p) => PriceObx(
+      //             nomGuid: guid,
+      //             price: p.price,
+      //             createdAtMs: p.createdAt != null
+      //                 ? p.createdAt!.millisecondsSinceEpoch
+      //                 : null,
+      //           ),
+      //         )
+      //         .toList();
+      //     _prices.putMany(toPut, mode: PutMode.put);
+      //   }
+      // }
     });
 
     // Verification: print total records after batch insert
@@ -247,7 +284,7 @@ class ObjectboxNomenclatureDatasource implements NomenclatureLocalDatasource {
         )
         .order(NomenclatureObx_.name)
         .build();
-    final res = q.find();
+    final res = q.find().take(100).toList();
     q.close();
     if (res.isNotEmpty) return res.map(_fromObx).toList();
     // Fallback for legacy records missing nameLower

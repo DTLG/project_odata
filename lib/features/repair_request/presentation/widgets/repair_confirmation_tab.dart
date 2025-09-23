@@ -32,8 +32,12 @@ class RepairConfirmationTab extends StatelessWidget {
       context,
     ).textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w600);
 
-    final String priceText =
-        '${(double.tryParse(priceController.text.trim()) ?? 0.0).toStringAsFixed(2)} грн';
+    // Keep for potential future UI extension (currently unused)
+
+    final bool hasCustomer = customer != null;
+    final bool hasProduct = nomenclatureGuid.trim().isNotEmpty;
+    final bool hasRepairType = repairTypeName.trim().isNotEmpty;
+    final bool canProceed = hasCustomer && hasProduct && hasRepairType;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -116,18 +120,36 @@ class RepairConfirmationTab extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: onSaveLocal,
-                      icon: const Icon(Icons.save_alt),
-                      label: const Text('Зберегти'),
+                    child: ElevatedButton(
+                      onPressed: canProceed ? onSaveLocal : null,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(56),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.save_alt),
+                          SizedBox(width: 8),
+                          Text('Зберегти', style: TextStyle(fontSize: 16)),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: onSend,
-                      icon: const Icon(Icons.cloud_upload),
-                      label: const Text('Надіслати'),
+                    child: ElevatedButton(
+                      onPressed: canProceed ? onSend : null,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(56),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cloud_upload),
+                          SizedBox(width: 8),
+                          Text('Надіслати', style: TextStyle(fontSize: 16)),
+                        ],
+                      ),
                     ),
                   ),
                 ],

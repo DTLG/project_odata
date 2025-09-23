@@ -247,24 +247,35 @@ class OrderConfirmationTab extends StatelessWidget {
                                 ),
                               ],
                             )
-                          : const Text(
-                              'Надіслати',
-                              style: TextStyle(fontSize: 16),
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.cloud_upload),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Надіслати',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ],
                             ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: OutlinedButton(
+                    child: ElevatedButton(
                       onPressed: _canCreateOrder(orderState)
                           ? onSaveLocal
                           : null,
-                      style: OutlinedButton.styleFrom(
+                      style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(56),
                       ),
-                      child: const Text(
-                        'Зберегти',
-                        style: TextStyle(fontSize: 16),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.save_alt),
+                          SizedBox(width: 8),
+                          Text('Зберегти', style: TextStyle(fontSize: 16)),
+                        ],
                       ),
                     ),
                   ),

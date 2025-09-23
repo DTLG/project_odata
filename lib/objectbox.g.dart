@@ -165,7 +165,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(4, 536119716697023923),
     name: 'NomenclatureObx',
-    lastPropertyId: const obx_int.IdUid(13, 367272998220197779),
+    lastPropertyId: const obx_int.IdUid(15, 8782405739976531920),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -250,6 +250,18 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 2048,
         indexId: const obx_int.IdUid(18, 7158022973388552631),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 4992676123616693327),
+        name: 'barcodes',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 8782405739976531920),
+        name: 'prices',
+        type: 9,
+        flags: 0,
       ),
     ],
     relations: <obx_int.ModelRelation>[],
@@ -608,7 +620,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final unitGuidOffset = fbb.writeString(object.unitGuid);
         final descriptionOffset = fbb.writeString(object.description);
         final nameLowerOffset = fbb.writeString(object.nameLower);
-        fbb.startTable(14);
+        final barcodesOffset = fbb.writeString(object.barcodes);
+        final pricesOffset = fbb.writeString(object.prices);
+        fbb.startTable(16);
         fbb.addInt64(0, object.obxId);
         fbb.addOffset(1, guidOffset);
         fbb.addOffset(2, nameOffset);
@@ -622,6 +636,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(10, descriptionOffset);
         fbb.addInt64(11, object.createdAtMs);
         fbb.addOffset(12, nameLowerOffset);
+        fbb.addOffset(13, barcodesOffset);
+        fbb.addOffset(14, pricesOffset);
         fbb.finish(fbb.endTable());
         return object.obxId;
       },
@@ -679,6 +695,12 @@ obx_int.ModelDefinition getObjectBoxModel() {
           26,
           0,
         );
+        final barcodesParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 30, '');
+        final pricesParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 32, '');
         final object = NomenclatureObx(
           obxId: obxIdParam,
           guid: guidParam,
@@ -693,6 +715,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
           unitGuid: unitGuidParam,
           description: descriptionParam,
           createdAtMs: createdAtMsParam,
+          barcodes: barcodesParam,
+          prices: pricesParam,
         );
 
         return object;
@@ -1004,6 +1028,16 @@ class NomenclatureObx_ {
   /// See [NomenclatureObx.nameLower].
   static final nameLower = obx.QueryStringProperty<NomenclatureObx>(
     _entities[3].properties[12],
+  );
+
+  /// See [NomenclatureObx.barcodes].
+  static final barcodes = obx.QueryStringProperty<NomenclatureObx>(
+    _entities[3].properties[13],
+  );
+
+  /// See [NomenclatureObx.prices].
+  static final prices = obx.QueryStringProperty<NomenclatureObx>(
+    _entities[3].properties[14],
   );
 }
 

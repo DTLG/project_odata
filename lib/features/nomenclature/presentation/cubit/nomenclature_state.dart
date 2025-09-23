@@ -12,6 +12,7 @@ enum NomenclatureStatus {
   searchResult,
   notFound,
   syncSuccess,
+  isSyncing,
   error,
 }
 
@@ -23,6 +24,7 @@ extension NomenclatureStatusX on NomenclatureStatus {
   bool get isSearchResult => this == NomenclatureStatus.searchResult;
   bool get isNotFound => this == NomenclatureStatus.notFound;
   bool get isSyncSuccess => this == NomenclatureStatus.syncSuccess;
+  bool get isSyncing => this == NomenclatureStatus.isSyncing;
   bool get isError => this == NomenclatureStatus.error;
 }
 

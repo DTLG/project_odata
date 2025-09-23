@@ -34,7 +34,7 @@ class NomenclatureView extends StatelessWidget {
         // if (state.status.isInitial) {
         //   context.read<NomenclatureCubit>().loadRootTree();
         // } else
-        if (state.status.isLoading) {
+        if (state.status.isSyncing) {
           _showProgressDialog(context, state);
         } else if (state.status.isSyncSuccess) {
           if (_progressDialogShown) {
@@ -411,9 +411,9 @@ class _NomenclatureSelectionTabState extends State<NomenclatureSelectionTab> {
                   border: const OutlineInputBorder(),
                 ),
                 onChanged: (value) {
-                  setState(() => _isSearchMode = value.trim().isNotEmpty);
                   _debounce?.cancel();
                   _debounce = Timer(const Duration(milliseconds: 250), () {
+                    setState(() => _isSearchMode = value.trim().isNotEmpty);
                     if (!mounted) return;
                     final q = value.trim();
                     if (q.isEmpty) {
@@ -662,8 +662,16 @@ class _BlocExpansionFolder extends StatelessWidget {
       leading: const Icon(Icons.folder),
       title: Text(entity.name),
       onExpansionChanged: (v) {
-        if (v) cubit.beginStreamChildren(entity.guid, pageSize: 100);
+        if (v) cubit.loadChildrenIntoState(entity.guid);
       },
+
+      // onExpansionChanged: (v) {
+      //   if (v) cubit.loadChildren(entity.guid);
+      // },
+
+      // onExpansionChanged: (v) {
+      //   if (v) cubit.loadChildrenIntoState(entity.guid);
+      // },
       children: [
         BlocBuilder<NomenclatureCubit, NomenclatureState>(
           buildWhen: (prev, curr) =>

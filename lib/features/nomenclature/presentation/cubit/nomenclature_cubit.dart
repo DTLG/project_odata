@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/foundation.dart';
+import '../dto/nomenclature_dto.dart';
 import 'package:project_odata/objectbox.dart';
 import '../../domain/usecases/get_local_nomenclature_usecase.dart';
 import '../../domain/usecases/get_nomenclature_count_usecase.dart';
@@ -15,14 +15,17 @@ import '../../data/datasources/local/objectbox_nomenclature_datasource.dart';
 import 'nomenclature_state.dart';
 // import removed: local datasource not used directly here
 import '../../../../core/objectbox/objectbox_entities.dart';
+import 'package:project_odata/objectbox.g.dart';
 import '../../domain/entities/nomenclature_entity.dart';
 import '../../../common/widgets/search_mode_switch.dart';
 import '../../domain/usecases/get_root_folders_usecase.dart';
+import 'package:flutter/foundation.dart';
 
 /// Cubit для управління станом номенклатури
 /// Дотримується принципу Single Responsibility (SOLID)
 class NomenclatureCubit extends Cubit<NomenclatureState> {
-  final SyncNomenclatureUseCase _syncNomenclatureUseCase;
+  // ignore: unused_field
+  final SyncNomenclatureUseCase _syncNomenclatureUseCase; // kept for future use
   final GetRootFoldersUseCase _getRootFoldersUseCase;
   final GetLocalNomenclatureUseCase _getLocalNomenclatureUseCase;
   final SearchNomenclatureByNameUseCase _searchNomenclatureByNameUseCase;
@@ -37,7 +40,10 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
   ObjectBox? _obx;
 
   // Fast in-memory caches
+  // caches reserved for future features
+  // ignore: unused_field
   final Map<String, List<BarcodeEntity>> _barcodesByNomGuid = {};
+  // ignore: unused_field
   final Map<String, List<PriceEntity>> _pricesByNomGuid = {};
   final Map<String, List<NomenclatureObx>> _childrenByParentGuidObx = {};
 
@@ -137,6 +143,63 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
   // List<NomenclatureEntity> getChildren(String parentGuid) {
   //   return _childrenByParentGuid[parentGuid] ?? const <NomenclatureEntity>[];
   // }
+  Stream<List<NomenclatureEntity>> loadChildrenStream(
+    String parentGuid, {
+    int batchSize = 200,
+  }) async* {
+    if (_obx == null) {
+      try {
+        _obx = sl<ObjectBox>();
+      } catch (_) {
+        debugPrint('loadChildrenStream error: ObjectBox not available');
+        yield const <NomenclatureEntity>[];
+        return;
+      }
+    }
+
+    final q = _obx!.nomenclatureBox
+        .query(NomenclatureObx_.parentGuid.equals(parentGuid))
+        .order(NomenclatureObx_.isFolder, flags: Order.descending)
+        .order(NomenclatureObx_.name)
+        .build();
+    final obxList = await q.findAsync();
+    q.close();
+
+    final dtos = obxList.map((e) => NomenclatureDto.fromObx(e)).toList();
+
+    int offset = 0;
+    final buffer = <NomenclatureEntity>[];
+
+    while (offset < dtos.length) {
+      final chunk = dtos.skip(offset).take(batchSize).toList();
+      final entities = await compute(mapNomenclatureDtosToEntities, chunk);
+      buffer.addAll(entities);
+
+      // ✅ віддаємо проміжний результат
+      yield List<NomenclatureEntity>.from(buffer);
+
+      offset += batchSize;
+
+      // маленька пауза, щоб UI встиг перемалюватися
+      await Future.delayed(const Duration(milliseconds: 16));
+    }
+  }
+
+  Future<void> loadChildrenIntoStateStream(String parentGuid) async {
+    await for (final entities in loadChildrenStream(parentGuid)) {
+      final updated = Map<String, List<NomenclatureEntity>>.from(
+        state.childrenByParentGuid,
+      );
+      updated[parentGuid] = entities;
+      emit(
+        state.copyWith(
+          status: NomenclatureStatus.treeLoaded,
+          childrenByParentGuid: updated,
+        ),
+      );
+    }
+  }
+
   Future<List<NomenclatureEntity>> loadChildren(String parentGuid) async {
     final totalSw = Stopwatch()..start();
     final querySw = Stopwatch()..start();
@@ -151,34 +214,20 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
       }
     }
 
-    // Always read fresh from ObjectBox
-    final obxList = _obx!.getChildrenNomenclature(parentGuid);
+    final q = _obx!.nomenclatureBox
+        .query(NomenclatureObx_.parentGuid.equals(parentGuid))
+        .order(NomenclatureObx_.isFolder, flags: Order.descending)
+        .order(NomenclatureObx_.name)
+        .build();
+    final obxList = await q.findAsync();
+    q.close();
     querySw.stop();
 
-    // Update cache with latest
     _childrenByParentGuidObx[parentGuid] = obxList;
 
     final mapSw = Stopwatch()..start();
-    final entities = obxList
-        .map(
-          (k) => NomenclatureEntity(
-            guid: k.guid,
-            name: k.name,
-            nameLower: k.nameLower,
-            isFolder: k.isFolder,
-            parentGuid: k.parentGuid,
-            description: '',
-            createdAt: k.createdAtMs > 0
-                ? DateTime.fromMillisecondsSinceEpoch(k.createdAtMs)
-                : DateTime.now(),
-            price: k.price,
-            article: k.article,
-            unitName: k.unitName,
-            unitGuid: k.unitGuid,
-            id: k.id,
-          ),
-        )
-        .toList();
+    final dtos = obxList.map((e) => NomenclatureDto.fromObx(e)).toList();
+    final entities = await compute(mapNomenclatureDtosToEntities, dtos);
     mapSw.stop();
     totalSw.stop();
 
@@ -191,142 +240,20 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
     return entities;
   }
 
-  /// Stream children incrementally in pages so UI can render progressively
-  Stream<List<NomenclatureEntity>> streamChildren(
-    String parentGuid, {
-    int pageSize = 200,
-  }) async* {
-    if (_obx == null) {
-      try {
-        _obx = sl<ObjectBox>();
-      } catch (_) {
-        yield const <NomenclatureEntity>[];
-        return;
-      }
-    }
+  // mapping moved to DTO file for isolate-safe compute
 
-    int offset = 0;
-
-    while (true) {
-      final batch = _obx!.getChildrenNomenclaturePaged(
-        parentGuid,
-        offset: offset,
-        limit: pageSize,
-      );
-      if (batch.isEmpty) break;
-
-      final entities = batch
-          .map(
-            (k) => NomenclatureEntity(
-              guid: k.guid,
-              name: k.name,
-              nameLower: k.nameLower,
-              isFolder: k.isFolder,
-              parentGuid: k.parentGuid,
-              description: '',
-              createdAt: k.createdAtMs > 0
-                  ? DateTime.fromMillisecondsSinceEpoch(k.createdAtMs)
-                  : DateTime.now(),
-              price: k.price,
-              article: k.article,
-              unitName: k.unitName,
-              unitGuid: k.unitGuid,
-              id: k.id,
-            ),
-          )
-          .toList();
-
-      // ⚡ Тільки цей батч!
-      yield entities;
-
-      offset += batch.length;
-      if (batch.length < pageSize) break;
-
-      // Невелика пауза, щоб не блокувати UI
-      await Future.delayed(const Duration(milliseconds: 1));
-    }
-  }
-
-  /// Begin streaming children into state (incremental rendering via BlocBuilder)
-  Future<void> beginStreamChildren(
-    String parentGuid, {
-    int pageSize = 100,
-  }) async {
-    final totalSw = Stopwatch()..start();
-    final resetSw = Stopwatch()..start();
-
-    // Reset list for this parent and emit
-    final resetMap = Map<String, List<NomenclatureEntity>>.from(
+  /// Load children once and put them into state
+  Future<void> loadChildrenIntoState(String parentGuid) async {
+    final entities = await loadChildren(parentGuid);
+    final updated = Map<String, List<NomenclatureEntity>>.from(
       state.childrenByParentGuid,
     );
-    resetMap[parentGuid] = <NomenclatureEntity>[];
+    updated[parentGuid] = entities;
     emit(
       state.copyWith(
         status: NomenclatureStatus.treeLoaded,
-        childrenByParentGuid: resetMap,
+        childrenByParentGuid: updated,
       ),
-    );
-    resetSw.stop();
-
-    int pages = 0;
-    int totalItems = 0;
-    int pagesSinceEmit = 0;
-    final emitIntervalMs = 50; // throttle UI updates to ~20 FPS
-    final lastEmitSw = Stopwatch()..start();
-
-    await for (final batch in streamChildren(parentGuid, pageSize: pageSize)) {
-      final mergeSw = Stopwatch()..start();
-      final updated = Map<String, List<NomenclatureEntity>>.from(
-        state.childrenByParentGuid,
-      );
-      final current = updated[parentGuid] ?? <NomenclatureEntity>[];
-      updated[parentGuid] = <NomenclatureEntity>[...current, ...batch];
-      mergeSw.stop();
-
-      Duration emitElapsed = Duration.zero;
-      final emitSw = Stopwatch();
-      bool didEmit = false;
-
-      // Throttle: emit only if enough time passed or enough pages batched
-      if (lastEmitSw.elapsedMilliseconds >= emitIntervalMs ||
-          pagesSinceEmit >= 5) {
-        emitSw.start();
-        emit(
-          state.copyWith(
-            status: NomenclatureStatus.treeLoaded,
-            childrenByParentGuid: updated,
-          ),
-        );
-        emitSw.stop();
-        emitElapsed = Duration(milliseconds: emitSw.elapsedMilliseconds);
-        lastEmitSw.reset();
-        didEmit = true;
-        pagesSinceEmit = 0;
-        // Yield to event loop to keep UI responsive
-        await Future.delayed(const Duration(milliseconds: 0));
-      } else {
-        // keep state local; next loop may emit
-        // Note: we still update state reference so next emit has merged data
-        emit(
-          state.copyWith(
-            status: NomenclatureStatus.treeLoaded,
-            childrenByParentGuid: updated,
-          ),
-        );
-        didEmit = true;
-      }
-
-      pages += 1;
-      totalItems += batch.length;
-      pagesSinceEmit += 1;
-      debugPrint(
-        'beginStreamChildren($parentGuid) page $pages: merge=${mergeSw.elapsedMilliseconds}ms, emit=${didEmit ? emitElapsed.inMilliseconds : 0}ms, batch=${batch.length}, total=$totalItems',
-      );
-    }
-
-    totalSw.stop();
-    debugPrint(
-      'beginStreamChildren($parentGuid) finished: pages=$pages, totalItems=$totalItems, reset=${resetSw.elapsedMilliseconds}ms, total=${totalSw.elapsedMilliseconds}ms',
     );
   }
 
@@ -396,8 +323,8 @@ class NomenclatureCubit extends Cubit<NomenclatureState> {
         },
       );
 
-      // Зберігаємо в локальну базу через repository
-      final repository = sl<NomenclatureRepository>();
+      // Зберігаємо в локальну базу через repository (resolved via DI)
+      sl<NomenclatureRepository>();
 
       emit(
         const NomenclatureState(

@@ -115,6 +115,26 @@ class ObjectBox {
     }
   }
 
+  Future<List<NomenclatureObx>> getChildrenNomenclatureBatch(
+    String parentGuid, {
+    int limit = 100,
+    int offset = 0,
+  }) {
+    final q =
+        nomenclatureBox
+            .query(NomenclatureObx_.parentGuid.equals(parentGuid))
+            .order(NomenclatureObx_.isFolder, flags: Order.descending)
+            .order(NomenclatureObx_.name)
+            .build()
+          ..offset = offset
+          ..limit = limit;
+    try {
+      return q.findAsync();
+    } finally {
+      q.close();
+    }
+  }
+
   List<NomenclatureObx> getChildrenNomenclature(String parentGuid) {
     final q = nomenclatureBox
         .query(NomenclatureObx_.parentGuid.equals(parentGuid))

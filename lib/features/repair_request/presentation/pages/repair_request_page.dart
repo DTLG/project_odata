@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../kontragenty/data/models/kontragent_model.dart';
-import '../../../kontragenty/data/datasources/kontragent_local_data_source.dart';
 import '../../../../core/injection/injection_container.dart';
 import '../../domain/entities/repair_request_entity.dart';
 import '../../data/datasources/local/sqflite_repair_local_data_source.dart';
@@ -41,7 +40,6 @@ class _RepairRequestPageState extends State<RepairRequestPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
   late final RepairLocalDataSource _repairLocal;
-  late final KontragentLocalDataSource _kontrLocal;
 
   KontragentModel? _customer;
   String? _nomGuid;
@@ -62,7 +60,6 @@ class _RepairRequestPageState extends State<RepairRequestPage>
   void initState() {
     super.initState();
     _repairLocal = RepairLocalDataSourceImpl();
-    _kontrLocal = sl<KontragentLocalDataSource>();
     // hydrate initial BEFORE creating tab controller to choose initialIndex
     final i = widget.initial;
     if (i != null) {
@@ -140,15 +137,7 @@ class _RepairRequestPageState extends State<RepairRequestPage>
     if (mounted) setState(() => _repairTypes = all);
   }
 
-  Future<void> _preloadCustomers() async {
-    try {
-      final all = await _kontrLocal.getAllKontragenty();
-      if (mounted) setState(() => _prefetchedCustomers = all);
-    } catch (e) {
-      // ignore: avoid_print
-      print('Не вдалося завантажити клієнтів: $e');
-    }
-  }
+  // _preloadCustomers removed as unused
 
   Future<void> _loadAgentFromPrefs() async {
     try {
@@ -204,7 +193,7 @@ class _RepairRequestPageState extends State<RepairRequestPage>
     ).showSnackBar(const SnackBar(content: Text('Заявку збережено локально')));
   }
 
-  Future<void> _sendToServer(BuildContext blocContext) async {
+  Future<bool> _sendToServer(BuildContext blocContext) async {
     final s = blocContext.read<RepairRequestCubit>().state;
     final selectedNomGuid = s.nomenclatureGuid.isNotEmpty
         ? s.nomenclatureGuid
@@ -221,7 +210,7 @@ class _RepairRequestPageState extends State<RepairRequestPage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Заповніть клієнта, товар і тип ремонту')),
       );
-      return;
+      return false;
     }
     // start sending
     try {
@@ -285,20 +274,105 @@ class _RepairRequestPageState extends State<RepairRequestPage>
         // ignore: avoid_print
         print('⚠️ Не вдалося оновити локальний id після відправки: $e');
       }
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Надіслано на сервер')));
+      if (!mounted) return true;
+      return true;
     } catch (e) {
       // ignore: avoid_print
       print('❌ Помилка надсилання service_orders: $e');
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Помилка надсилання: $e')));
+      return false;
     } finally {
       // done sending
     }
+  }
+
+  Future<void> _showSendSuccessDialog(
+    BuildContext dialogContext,
+    String idStr,
+  ) async {
+    await showDialog(
+      context: dialogContext,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          decoration: BoxDecoration(
+            color: Colors.red.shade600,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade700,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 56),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Заявка надіслана!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                idStr.isNotEmpty ? 'Номер заявки: #$idStr' : '',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "Майстер зв'яжеться з вами найближчим часом",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(
+                      ctx,
+                      rootNavigator: true,
+                    ).pop(); // close dialog
+                    Navigator.of(context).pop(); // back to list of requests
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.red.shade700,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Повернутись до всіх заявок',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -327,17 +401,50 @@ class _RepairRequestPageState extends State<RepairRequestPage>
               return Text(title, overflow: TextOverflow.ellipsis, maxLines: 1);
             },
           ),
-          bottom: TabBar(
-            controller: _tabs,
-            indicatorColor: AppTheme.accentColor,
-            labelColor: AppTheme.accentColor,
-            unselectedLabelColor: Colors.white,
-            tabs: const [
-              Tab(icon: Icon(Icons.person), text: 'Клієнт'),
-              Tab(icon: Icon(Icons.build), text: 'Товар'),
-              Tab(icon: Icon(Icons.description), text: 'Деталі'),
-              Tab(icon: Icon(Icons.check_circle), text: 'Підтвердження'),
-            ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: BlocBuilder<RepairRequestCubit, RepairRequestState>(
+              builder: (context, state) {
+                final hasCustomer = (state.customer ?? _customer) != null;
+                final hasProduct =
+                    (state.nomenclatureGuid.isNotEmpty
+                            ? state.nomenclatureGuid
+                            : (_nomGuid ?? ''))
+                        .trim()
+                        .isNotEmpty;
+                return TabBar(
+                  controller: _tabs,
+                  indicatorColor: AppTheme.accentColor,
+                  labelColor: AppTheme.accentColor,
+                  unselectedLabelColor: Colors.white,
+                  onTap: (index) {
+                    // Prevent navigating to Product/Details/Confirm without required selections
+                    if (index >= 1 && !hasCustomer) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Спочатку оберіть клієнта'),
+                        ),
+                      );
+                      _tabs.animateTo(0);
+                      return;
+                    }
+                    if (index >= 2 && !hasProduct) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Спочатку оберіть товар')),
+                      );
+                      _tabs.animateTo(1);
+                      return;
+                    }
+                  },
+                  tabs: const [
+                    Tab(icon: Icon(Icons.person), text: 'Клієнт'),
+                    Tab(icon: Icon(Icons.build), text: 'Товар'),
+                    Tab(icon: Icon(Icons.description), text: 'Деталі'),
+                    Tab(icon: Icon(Icons.check_circle), text: 'Підтвердження'),
+                  ],
+                );
+              },
+            ),
           ),
         ),
         body: Column(
@@ -370,6 +477,7 @@ class _RepairRequestPageState extends State<RepairRequestPage>
               child: Builder(
                 builder: (innerCtx) => TabBarView(
                   controller: _tabs,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
                     KeepAliveWrapper(
                       child: AbsorbPointer(
@@ -421,8 +529,16 @@ class _RepairRequestPageState extends State<RepairRequestPage>
                                 },
                                 onSend: () async {
                                   await _saveLocal(innerCtx);
-                                  await _sendToServer(innerCtx);
-                                  AppRouter.goBack(context);
+                                  final ok = await _sendToServer(innerCtx);
+                                  if (!mounted) return;
+                                  if (ok) {
+                                    final idStr = (_serverId?.toString() ?? '')
+                                        .trim();
+                                    await _showSendSuccessDialog(
+                                      context,
+                                      idStr,
+                                    );
+                                  }
                                 },
                                 customer: s.customer ?? _customer,
                                 nomenclatureGuid: s.nomenclatureGuid.isNotEmpty
